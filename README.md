@@ -24,6 +24,24 @@ go-ipld-cbor
 make install
 ```
 
+## Usage
+
+TODO: Right now this package isn't the easiest to use, it will be getting better rapidly, soon.
+```go
+// Make an object
+obj := map[interface{}]interface{}{
+	"foo": "bar",
+	"baz": &Link{
+		Target: myCid,
+	},
+}
+
+// Parse it into an ipldcbor node
+nd, err := WrapMap(obj)
+
+fmt.Println(nd.Links())
+
+```
 
 ## Contribute
 
