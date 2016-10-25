@@ -52,11 +52,36 @@ func DecodeInto(b []byte, v interface{}) error {
 var ErrNoSuchLink = errors.New("no such link found")
 
 type Node struct {
-	obj map[interface{}]interface{}
+	obj   map[interface{}]interface{}
+	tree  []string
+	links []*node.Link
+	raw   []byte
 }
 
 func WrapMap(m map[interface{}]interface{}) (*Node, error) {
-	return &Node{m}, nil
+	nd := &Node{obj: m}
+	tree, err := nd.compTree()
+	if err != nil {
+		return nil, err
+	}
+
+	nd.tree = tree
+
+	links, err := nd.compLinks()
+	if err != nil {
+		return nil, err
+	}
+
+	nd.links = links
+
+	data, err := nd.rawData()
+	if err != nil {
+		return nil, err
+	}
+
+	nd.raw = data
+
+	return nd, nil
 }
 
 type Link struct {
@@ -128,20 +153,28 @@ func linkCast(lnk interface{}) (*node.Link, error) {
 	return &node.Link{Cid: c}, nil
 }
 
-func (n Node) Tree() []string {
+func (n *Node) Tree() []string {
+	return n.tree
+}
+
+func (n *Node) compTree() ([]string, error) {
 	var out []string
 	err := traverse(n.obj, "", func(name string, val interface{}) error {
 		out = append(out, name)
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return out
+	return out, nil
 }
 
 func (n Node) Links() []*node.Link {
+	return n.links
+}
+
+func (n *Node) compLinks() ([]*node.Link, error) {
 	var out []*node.Link
 	err := traverse(n.obj, "", func(_ string, val interface{}) error {
 		if lnk, ok := val.(*node.Link); ok {
@@ -150,9 +183,9 @@ func (n Node) Links() []*node.Link {
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return out
+	return out, nil
 }
 
 func traverse(obj map[interface{}]interface{}, cur string, cb func(string, interface{}) error) error {
@@ -187,13 +220,11 @@ func traverse(obj map[interface{}]interface{}, cur string, cb func(string, inter
 }
 
 func (n Node) RawData() []byte {
-	b, err := cbor.Dumps(n.obj)
-	if err != nil {
-		// not sure this can ever happen
-		panic(err)
-	}
+	return n.raw
+}
 
-	return b
+func (n *Node) rawData() ([]byte, error) {
+	return cbor.Dumps(n.obj)
 }
 
 func (n Node) Cid() *cid.Cid {
