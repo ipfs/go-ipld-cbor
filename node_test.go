@@ -3,9 +3,9 @@ package cbornode
 import (
 	"testing"
 
-	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
-	cbor "github.com/whyrusleeping/cbor/go"
+	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
+	cid "gx/ipfs/QmXfiyr2RWEXpVDdaYnD2HNiBk6UBddsvEP4RPfXb6nGqY/go-cid"
+	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
 )
 
 type testObject struct {
@@ -47,4 +47,55 @@ func TestBasicMarshal(t *testing.T) {
 	}
 
 	t.Logf("%#v", obj2)
+}
+
+func TestMarshalRoundtrip(t *testing.T) {
+	c1 := cid.NewCidV0(u.Hash([]byte("something1")))
+	c2 := cid.NewCidV0(u.Hash([]byte("something2")))
+	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
+
+	obj := map[interface{}]interface{}{
+		"foo": "bar",
+		"baz": []interface{}{
+			&Link{c1},
+			&Link{c2},
+		},
+		"cats": map[interface{}]interface{}{
+			"qux": &Link{c3},
+		},
+	}
+
+	nd1, err := WrapMap(obj)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nd2, err := Decode(nd1.RawData())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !nd1.Cid().Equals(nd2.Cid()) {
+		t.Fatal("objects didnt match between marshalings")
+	}
+
+	lnk, rest, err := nd2.ResolveLink([]string{"baz", "1", "bop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !lnk.Cid.Equals(c2) {
+		t.Fatal("expected c2")
+	}
+
+	if len(rest) != 1 || rest[0] != "bop" {
+		t.Fatal("should have had one path element remaning after resolve")
+	}
+
+	out, err := nd1.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(string(out))
 }

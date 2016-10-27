@@ -5,25 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-node"
-	mh "github.com/multiformats/go-multihash"
-	cbor "github.com/whyrusleeping/cbor/go"
+	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
+	node "gx/ipfs/QmU7bFWQ793qmvNy7outdCaMfSDNk8uqhx4VNrxYj5fj5g/go-ipld-node"
+	cid "gx/ipfs/QmXfiyr2RWEXpVDdaYnD2HNiBk6UBddsvEP4RPfXb6nGqY/go-cid"
+	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
 )
 
 func Decode(b []byte) (*Node, error) {
-	out := new(Node)
-	err := cbor.Loads(b, &out.obj)
+	var m map[interface{}]interface{}
+	err := cbor.Loads(b, &m)
 	if err != nil {
 		return nil, err
 	}
 
-	return out, nil
-}
-
-func EncodeObject(obj interface{}) ([]byte, error) {
-	return cbor.Dumps(obj)
+	return WrapMap(m)
 }
 
 // DecodeInto decodes a serialized ipld cbor object into the given object.
@@ -97,32 +94,63 @@ func (l *Link) ToCBOR(w io.Writer, enc *cbor.Encoder) error {
 }
 
 func (n Node) Resolve(path []string) (interface{}, []string, error) {
-	cur := n.obj
+	var cur interface{} = n.obj
 	for i, val := range path {
-		next, ok := cur[val]
-		if !ok {
-			return nil, nil, ErrNoSuchLink
+		lnk, err := maybeLink(cur)
+		if err != nil {
+			return nil, nil, err
+		}
+		if lnk != nil {
+			return lnk, path[i:], nil
 		}
 
-		nextmap, ok := next.(map[interface{}]interface{})
-		if !ok {
-			return nil, nil, errors.New("tried to resolve through object that had no links")
-		}
+		switch curv := cur.(type) {
+		case map[interface{}]interface{}:
+			next, ok := curv[val]
+			if !ok {
+				return nil, nil, ErrNoSuchLink
+			}
 
-		if lnk, ok := nextmap["/"]; ok {
-			out, err := linkCast(lnk)
+			cur = next
+		case []interface{}:
+			n, err := strconv.Atoi(val)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			out.Name = val
-			return out, path[i+1:], nil
-		}
+			if n < 0 || n >= len(curv) {
+				return nil, nil, fmt.Errorf("array index out of range")
+			}
 
-		cur = nextmap
+			cur = curv[n]
+		default:
+			return nil, nil, errors.New("tried to resolve through object that had no links")
+		}
+	}
+
+	lnk, err := maybeLink(cur)
+	if err != nil {
+		return nil, nil, err
+	}
+	if lnk != nil {
+		return lnk, nil, nil
 	}
 
 	return nil, nil, errors.New("could not resolve through object")
+}
+
+func maybeLink(i interface{}) (*node.Link, error) {
+	m, ok := i.(map[interface{}]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	lnk, ok := m["/"]
+	if !ok {
+		return nil, nil
+	}
+
+	return linkCast(lnk)
 }
 
 func (n Node) ResolveLink(path []string) (*node.Link, []string, error) {
