@@ -7,10 +7,10 @@ import (
 	"io"
 	"strconv"
 
-	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
-	node "gx/ipfs/QmU7bFWQ793qmvNy7outdCaMfSDNk8uqhx4VNrxYj5fj5g/go-ipld-node"
-	cid "gx/ipfs/QmXfiyr2RWEXpVDdaYnD2HNiBk6UBddsvEP4RPfXb6nGqY/go-cid"
-	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
+	cbor "github.com/whyrusleeping/cbor/go"
 )
 
 func Decode(b []byte) (*Node, error) {
@@ -335,6 +335,74 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 
 			out = append(out, obj)
 		}
+		return out, nil
+	default:
+		return v, nil
+	}
+}
+
+func FromJson(r io.Reader) (*Node, error) {
+	var m map[string]interface{}
+	err := json.NewDecoder(r).Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertJsonToCbor(m)
+}
+
+func convertJsonToCbor(from map[string]interface{}) (*Node, error) {
+	out, err := convertMapSIToCbor(from)
+	if err != nil {
+		return nil, err
+	}
+
+	return WrapMap(out)
+}
+
+func convertMapSIToCbor(from map[string]interface{}) (map[interface{}]interface{}, error) {
+	to := make(map[interface{}]interface{})
+	for k, v := range from {
+		out, err := convertToCborIshObj(v)
+		if err != nil {
+			return nil, err
+		}
+		to[k] = out
+	}
+
+	return to, nil
+}
+
+func convertToCborIshObj(i interface{}) (interface{}, error) {
+	switch v := i.(type) {
+	case map[string]interface{}:
+		if lnk, ok := v["/"]; ok && len(v) == 1 {
+			// special case for links
+			vstr, ok := lnk.(string)
+			if !ok {
+				return nil, fmt.Errorf("link should have been a string")
+			}
+
+			c, err := cid.Decode(vstr)
+			if err != nil {
+				return nil, err
+			}
+
+			return &Link{Target: c}, nil
+		}
+
+		return convertMapSIToCbor(v)
+	case []interface{}:
+		var out []interface{}
+		for _, o := range v {
+			obj, err := convertToCborIshObj(o)
+			if err != nil {
+				return nil, err
+			}
+
+			out = append(out, obj)
+		}
+
 		return out, nil
 	default:
 		return v, nil
