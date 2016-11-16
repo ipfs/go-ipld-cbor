@@ -1,6 +1,7 @@
 package cbornode
 
 import (
+	"sort"
 	"testing"
 
 	cid "github.com/ipfs/go-cid"
@@ -98,4 +99,80 @@ func TestMarshalRoundtrip(t *testing.T) {
 	}
 
 	t.Log(string(out))
+}
+
+func assertStringsEqual(t *testing.T, a, b []string) {
+	if len(a) != len(b) {
+		t.Fatal("lengths differed: ", a, b)
+	}
+
+	sort.Strings(a)
+	sort.Strings(b)
+
+	for i, v := range a {
+		if v != b[i] {
+			t.Fatal("got mismatch: ", a, b)
+		}
+	}
+}
+
+func TestTree(t *testing.T) {
+	obj := map[interface{}]interface{}{
+		"foo": "bar",
+		"baz": []interface{}{"a", "b", "c"},
+		"cats": map[interface{}]interface{}{
+			"qux": map[interface{}]interface{}{
+				"boo": 1,
+				"baa": 2,
+				"bee": 3,
+				"bii": 4,
+				"buu": map[interface{}]interface{}{
+					"coat": "rain",
+				},
+			},
+		},
+	}
+
+	nd, err := WrapMap(obj)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	full := []string{
+		"foo",
+		"baz",
+		"baz/0",
+		"baz/1",
+		"baz/2",
+		"cats",
+		"cats/qux",
+		"cats/qux/boo",
+		"cats/qux/baa",
+		"cats/qux/bee",
+		"cats/qux/bii",
+		"cats/qux/buu",
+		"cats/qux/buu/coat",
+	}
+
+	assertStringsEqual(t, full, nd.Tree("", -1))
+
+	cats := []string{
+		"qux",
+		"qux/boo",
+		"qux/baa",
+		"qux/bee",
+		"qux/bii",
+		"qux/buu",
+		"qux/buu/coat",
+	}
+
+	assertStringsEqual(t, cats, nd.Tree("cats", -1))
+
+	toplevel := []string{
+		"foo",
+		"baz",
+		"cats",
+	}
+
+	assertStringsEqual(t, toplevel, nd.Tree("", 1))
 }

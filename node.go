@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	cid "github.com/ipfs/go-cid"
 	node "github.com/ipfs/go-ipld-node"
@@ -153,6 +154,45 @@ func maybeLink(i interface{}) (*node.Link, error) {
 	return linkCast(lnk)
 }
 
+func (n *Node) Copy() node.Node {
+	links := make([]*node.Link, len(n.links))
+	copy(links, n.links)
+
+	raw := make([]byte, len(n.raw))
+	copy(raw, n.raw)
+
+	tree := make([]string, len(n.tree))
+	copy(tree, n.tree)
+
+	return &Node{
+		obj:   copyObj(n.obj).(map[interface{}]interface{}),
+		links: links,
+		raw:   raw,
+		tree:  tree,
+	}
+}
+
+func copyObj(i interface{}) interface{} {
+	switch i := i.(type) {
+	case map[interface{}]interface{}:
+		out := make(map[interface{}]interface{})
+		for k, v := range i {
+			out[k] = copyObj(v)
+		}
+		return out
+	case []interface{}:
+		var out []interface{}
+		for _, v := range i {
+			out = append(out, copyObj(v))
+		}
+		return out
+	default:
+		// being lazy for now
+		// use caution
+		return i
+	}
+}
+
 func (n Node) ResolveLink(path []string) (*node.Link, []string, error) {
 	obj, rest, err := n.Resolve(path)
 	if err != nil {
@@ -181,14 +221,41 @@ func linkCast(lnk interface{}) (*node.Link, error) {
 	return &node.Link{Cid: c}, nil
 }
 
-func (n *Node) Tree() []string {
-	return n.tree
+func (n *Node) Tree(path string, depth int) []string {
+	if path == "" && depth == -1 {
+		return n.tree
+	}
+
+	var out []string
+	for _, t := range n.tree {
+		if !strings.HasPrefix(t, path) {
+			continue
+		}
+
+		sub := strings.TrimLeft(t[len(path):], "/")
+		if sub == "" {
+			continue
+		}
+
+		if depth < 0 {
+			out = append(out, sub)
+			continue
+		}
+
+		parts := strings.Split(sub, "/")
+		if len(parts) <= depth {
+			out = append(out, sub)
+		}
+	}
+	return out
 }
 
 func (n *Node) compTree() ([]string, error) {
 	var out []string
 	err := traverse(n.obj, "", func(name string, val interface{}) error {
-		out = append(out, name)
+		if name != "" {
+			out = append(out, name[1:])
+		}
 		return nil
 	})
 	if err != nil {
@@ -216,35 +283,44 @@ func (n *Node) compLinks() ([]*node.Link, error) {
 	return out, nil
 }
 
-func traverse(obj map[interface{}]interface{}, cur string, cb func(string, interface{}) error) error {
-	if lnk, ok := obj["/"]; ok {
-		l, err := linkCast(lnk)
-		if err != nil {
-			return err
-		}
-
-		return cb(cur, l)
+func traverse(obj interface{}, cur string, cb func(string, interface{}) error) error {
+	if err := cb(cur, obj); err != nil {
+		return err
 	}
 
-	for k, v := range obj {
-		ks, ok := k.(string)
-		if !ok {
-			return errors.New("map key was not a string")
+	switch obj := obj.(type) {
+	case map[interface{}]interface{}:
+		if lnk, ok := obj["/"]; ok {
+			l, err := linkCast(lnk)
+			if err != nil {
+				return err
+			}
+
+			return cb(cur, l)
 		}
-		this := cur + "/" + ks
-		switch v := v.(type) {
-		case map[interface{}]interface{}:
+
+		for k, v := range obj {
+			ks, ok := k.(string)
+			if !ok {
+				return errors.New("map key was not a string")
+			}
+			this := cur + "/" + ks
 			if err := traverse(v, this, cb); err != nil {
 				return err
 			}
-		default:
-			if err := cb(this, v); err != nil {
+		}
+		return nil
+	case []interface{}:
+		for i, v := range obj {
+			this := fmt.Sprintf("%s/%d", cur, i)
+			if err := traverse(v, this, cb); err != nil {
 				return err
 			}
 		}
+		return nil
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 func (n Node) RawData() []byte {
