@@ -9,15 +9,15 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmUsVJ7AEnGyjX8YWnrwq9vmECVGwBQNAKPpgz5KSg8dcq",
+      "hash": "QmbTqSUUbLphDv3VAFei6a1Phbhe83V9b1G3vRt9EFdtLR",
       "name": "go-ipld-node",
-      "version": "0.4.1"
+      "version": "0.5.0"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU",
+      "hash": "QmWeAhEo9Zj7UZWQYY2kua4ZXwd3e6iVG1b5YGCL6fYVP1",
       "name": "go-cid",
-      "version": "0.7.5"
+      "version": "0.8.0"
     },
     {
       "author": "whyrusleeping",
@@ -37,6 +37,6 @@
   "license": "",
   "name": "go-ipld-cbor",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.4.1"
+  "version": "0.5.0"
 }
 
