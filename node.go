@@ -334,7 +334,7 @@ func (n *Node) rawData() ([]byte, error) {
 func (n Node) Cid() *cid.Cid {
 	data := n.RawData()
 	hash, _ := mh.Sum(data, mh.SHA2_256, -1)
-	return cid.NewCidV1(cid.CBOR, hash)
+	return cid.NewCidV1(cid.DagCBOR, hash)
 }
 
 func (n Node) Loggable() map[string]interface{} {
