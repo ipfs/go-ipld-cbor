@@ -1,17 +1,18 @@
 package cbornode
 
 import (
+	"bytes"
+	"fmt"
 	"sort"
 	"testing"
 
-	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
-	cbor "github.com/whyrusleeping/cbor/go"
+	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
+	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
 )
 
 type testObject struct {
 	Name string
-	Bar  *Link
+	Bar  *cid.Cid
 }
 
 func TestBasicMarshal(t *testing.T) {
@@ -19,10 +20,10 @@ func TestBasicMarshal(t *testing.T) {
 
 	obj := testObject{
 		Name: "foo",
-		Bar:  &Link{c},
+		Bar:  c,
 	}
 
-	out, err := cbor.Dumps(&obj)
+	out, err := DumpObject(&obj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,17 +59,21 @@ func TestMarshalRoundtrip(t *testing.T) {
 	obj := map[interface{}]interface{}{
 		"foo": "bar",
 		"baz": []interface{}{
-			&Link{c1},
-			&Link{c2},
+			c1,
+			c2,
 		},
 		"cats": map[interface{}]interface{}{
-			"qux": &Link{c3},
+			"qux": c3,
 		},
 	}
 
 	nd1, err := WrapMap(obj)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if len(nd1.Links()) != 3 {
+		t.Fatal("didnt have enough links")
 	}
 
 	nd2, err := Decode(nd1.RawData())
@@ -117,13 +122,18 @@ func assertStringsEqual(t *testing.T, a, b []string) {
 }
 
 func TestTree(t *testing.T) {
+	c1 := cid.NewCidV0(u.Hash([]byte("something1")))
+	c2 := cid.NewCidV0(u.Hash([]byte("something2")))
+	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
+	c4 := cid.NewCidV0(u.Hash([]byte("something4")))
+
 	obj := map[interface{}]interface{}{
-		"foo": "bar",
-		"baz": []interface{}{"a", "b", "c"},
+		"foo": c1,
+		"baz": []interface{}{c2, c3, "c"},
 		"cats": map[interface{}]interface{}{
 			"qux": map[interface{}]interface{}{
 				"boo": 1,
-				"baa": 2,
+				"baa": c4,
 				"bee": 3,
 				"bii": 4,
 				"buu": map[interface{}]interface{}{
@@ -175,4 +185,36 @@ func TestTree(t *testing.T) {
 	}
 
 	assertStringsEqual(t, toplevel, nd.Tree("", 1))
+}
+
+func TestParsing(t *testing.T) {
+	b := []byte("\xd9\x01\x02\x58\x25\xa5\x03\x22\x12\x20\x65\x96\x50\xfc\x34\x43\xc9\x16\x42\x80\x48\xef\xc5\xba\x45\x58\xdc\x86\x35\x94\x98\x0a\x59\xf5\xcb\x3c\x4d\x84\x86\x7e\x6d\x31")
+
+	n, err := Decode(b)
+	t.Log(n, err)
+}
+
+func TestFromJson(t *testing.T) {
+	data := `{
+        "something": {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
+        "cats": "not cats",
+        "cheese": [
+                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
+                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
+                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
+                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"}
+        ]
+}`
+	n, err := FromJson(bytes.NewReader([]byte(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(n.obj.(map[interface{}]interface{})["something"])
+
+	out, err := n.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(string(out))
 }

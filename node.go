@@ -1,6 +1,7 @@
 package cbornode
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,15 +9,22 @@ import (
 	"strconv"
 	"strings"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-node"
-	mh "github.com/multiformats/go-multihash"
-	cbor "github.com/whyrusleeping/cbor/go"
+	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
+	node "gx/ipfs/QmRSU5EqqWVZSNdbU51yXmVoF1uNw3JgTNB6RaiL7DZM16/go-ipld-node"
+	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
+	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
 )
 
-func Decode(b []byte) (*Node, error) {
-	var m map[interface{}]interface{}
-	err := cbor.Loads(b, &m)
+func Decode(b []byte) (n *Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("cbor panic: %s", r)
+		}
+	}()
+	var m interface{}
+	dec := cbor.NewDecoder(bytes.NewReader(b))
+	dec.TagDecoders[258] = new(IpldLinkDecoder)
+	err = dec.Decode(&m)
 	if err != nil {
 		return nil, err
 	}
@@ -26,10 +34,11 @@ func Decode(b []byte) (*Node, error) {
 
 // DecodeInto decodes a serialized ipld cbor object into the given object.
 func DecodeInto(b []byte, v interface{}) error {
-	// The cbor library really doesnt make this sort of operation easy on us when we are implementing
-	// the `ToCBOR` method.
+	// The cbor library really doesnt make this sort of operation easy on us
 	var m map[interface{}]interface{}
-	err := cbor.Loads(b, &m)
+	dec := cbor.NewDecoder(bytes.NewReader(b))
+	dec.TagDecoders[258] = new(IpldLinkDecoder)
+	err := dec.Decode(&m)
 	if err != nil {
 		return err
 	}
@@ -45,18 +54,19 @@ func DecodeInto(b []byte, v interface{}) error {
 	}
 
 	return json.Unmarshal(jsonb, v)
+
 }
 
 var ErrNoSuchLink = errors.New("no such link found")
 
 type Node struct {
-	obj   map[interface{}]interface{}
+	obj   interface{}
 	tree  []string
 	links []*node.Link
 	raw   []byte
 }
 
-func WrapMap(m map[interface{}]interface{}) (*Node, error) {
+func WrapMap(m interface{}) (*Node, error) {
 	nd := &Node{obj: m}
 	tree, err := nd.compTree()
 	if err != nil {
@@ -82,29 +92,9 @@ func WrapMap(m map[interface{}]interface{}) (*Node, error) {
 	return nd, nil
 }
 
-type Link struct {
-	Target *cid.Cid `json:"/" cbor:"/"`
-}
-
-func (l *Link) ToCBOR(w io.Writer, enc *cbor.Encoder) error {
-	obj := map[string]interface{}{
-		"/": l.Target.Bytes(),
-	}
-
-	return enc.Encode(obj)
-}
-
 func (n Node) Resolve(path []string) (interface{}, []string, error) {
 	var cur interface{} = n.obj
 	for i, val := range path {
-		lnk, err := maybeLink(cur)
-		if err != nil {
-			return nil, nil, err
-		}
-		if lnk != nil {
-			return lnk, path[i:], nil
-		}
-
 		switch curv := cur.(type) {
 		case map[interface{}]interface{}:
 			next, ok := curv[val]
@@ -124,34 +114,19 @@ func (n Node) Resolve(path []string) (interface{}, []string, error) {
 			}
 
 			cur = curv[n]
+		case *cid.Cid:
+			return &node.Link{Cid: curv}, path[i:], nil
 		default:
 			return nil, nil, errors.New("tried to resolve through object that had no links")
 		}
 	}
 
-	lnk, err := maybeLink(cur)
-	if err != nil {
-		return nil, nil, err
-	}
-	if lnk != nil {
-		return lnk, nil, nil
+	lnk, ok := cur.(*cid.Cid)
+	if ok {
+		return &node.Link{Cid: lnk}, nil, nil
 	}
 
-	return nil, nil, errors.New("could not resolve through object")
-}
-
-func maybeLink(i interface{}) (*node.Link, error) {
-	m, ok := i.(map[interface{}]interface{})
-	if !ok {
-		return nil, nil
-	}
-
-	lnk, ok := m["/"]
-	if !ok {
-		return nil, nil
-	}
-
-	return linkCast(lnk)
+	return cur, nil, nil
 }
 
 func (n *Node) Copy() node.Node {
@@ -271,9 +246,9 @@ func (n Node) Links() []*node.Link {
 
 func (n *Node) compLinks() ([]*node.Link, error) {
 	var out []*node.Link
-	err := traverse(n.obj, "", func(_ string, val interface{}) error {
-		if lnk, ok := val.(*node.Link); ok {
-			out = append(out, lnk)
+	err := traverse(n.obj, "", func(name string, val interface{}) error {
+		if lnk, ok := val.(*cid.Cid); ok {
+			out = append(out, &node.Link{Cid: lnk})
 		}
 		return nil
 	})
@@ -290,15 +265,6 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 
 	switch obj := obj.(type) {
 	case map[interface{}]interface{}:
-		if lnk, ok := obj["/"]; ok {
-			l, err := linkCast(lnk)
-			if err != nil {
-				return err
-			}
-
-			return cb(cur, l)
-		}
-
 		for k, v := range obj {
 			ks, ok := k.(string)
 			if !ok {
@@ -328,7 +294,19 @@ func (n Node) RawData() []byte {
 }
 
 func (n *Node) rawData() ([]byte, error) {
-	return cbor.Dumps(n.obj)
+	return DumpObject(n.obj)
+}
+
+func DumpObject(obj interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	enc := cbor.NewEncoder(buf)
+	enc.SetFilter(EncoderFilter)
+	err := enc.Encode(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (n Node) Cid() *cid.Cid {
@@ -357,7 +335,7 @@ func (n Node) String() string {
 }
 
 func (n Node) MarshalJSON() ([]byte, error) {
-	out, err := toSaneMap(n.obj)
+	out, err := convertToJsonIsh(n.obj)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +355,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 			return nil, err
 		}
 
-		return &Link{c}, nil
+		return c, nil
 	}
 	out := make(map[string]interface{})
 	for k, v := range n {
@@ -459,12 +437,7 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 				return nil, fmt.Errorf("link should have been a string")
 			}
 
-			c, err := cid.Decode(vstr)
-			if err != nil {
-				return nil, err
-			}
-
-			return &Link{Target: c}, nil
+			return cid.Decode(vstr)
 		}
 
 		return convertMapSIToCbor(v)
@@ -485,4 +458,41 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 	}
 }
 
+func EncoderFilter(i interface{}) interface{} {
+	link, ok := i.(*cid.Cid)
+	if !ok {
+		return i
+	}
+
+	return &cbor.CBORTag{
+		Tag:           258,
+		WrappedObject: link.Bytes(),
+	}
+}
+
+type IpldLinkDecoder struct{}
+
+func (d *IpldLinkDecoder) DecodeTarget() interface{} {
+	return &[]byte{}
+}
+
+func (d *IpldLinkDecoder) GetTag() uint64 {
+	return 258
+}
+
+func (d *IpldLinkDecoder) PostDecode(i interface{}) (interface{}, error) {
+	barr, ok := i.(*[]byte)
+	if !ok {
+		return nil, fmt.Errorf("expected a byte array in IpldLink PostDecode")
+	}
+
+	c, err := cid.Cast(*barr)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+var _ cbor.TagDecoder = (*IpldLinkDecoder)(nil)
 var _ node.Node = (*Node)(nil)
