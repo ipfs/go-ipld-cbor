@@ -9,11 +9,13 @@ import (
 	"strconv"
 	"strings"
 
-	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
-	node "gx/ipfs/QmRSU5EqqWVZSNdbU51yXmVoF1uNw3JgTNB6RaiL7DZM16/go-ipld-node"
-	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
-	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
+	cbor "github.com/whyrusleeping/cbor/go"
 )
+
+const CBORTagLink = 42
 
 func Decode(b []byte) (n *Node, err error) {
 	defer func() {
@@ -23,7 +25,7 @@ func Decode(b []byte) (n *Node, err error) {
 	}()
 	var m interface{}
 	dec := cbor.NewDecoder(bytes.NewReader(b))
-	dec.TagDecoders[258] = new(IpldLinkDecoder)
+	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
 	err = dec.Decode(&m)
 	if err != nil {
 		return nil, err
@@ -37,7 +39,7 @@ func DecodeInto(b []byte, v interface{}) error {
 	// The cbor library really doesnt make this sort of operation easy on us
 	var m map[interface{}]interface{}
 	dec := cbor.NewDecoder(bytes.NewReader(b))
-	dec.TagDecoders[258] = new(IpldLinkDecoder)
+	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
 	err := dec.Decode(&m)
 	if err != nil {
 		return err
@@ -465,8 +467,8 @@ func EncoderFilter(i interface{}) interface{} {
 	}
 
 	return &cbor.CBORTag{
-		Tag:           258,
-		WrappedObject: link.Bytes(),
+		Tag:           CBORTagLink,
+		WrappedObject: append([]byte{0}, link.Bytes()...), // TODO: manually doing binary multibase
 	}
 }
 
@@ -477,16 +479,28 @@ func (d *IpldLinkDecoder) DecodeTarget() interface{} {
 }
 
 func (d *IpldLinkDecoder) GetTag() uint64 {
-	return 258
+	return CBORTagLink
 }
 
 func (d *IpldLinkDecoder) PostDecode(i interface{}) (interface{}, error) {
-	barr, ok := i.(*[]byte)
+	ibarr, ok := i.(*[]byte)
 	if !ok {
 		return nil, fmt.Errorf("expected a byte array in IpldLink PostDecode")
 	}
 
-	c, err := cid.Cast(*barr)
+	barr := *ibarr
+
+	if len(barr) == 0 {
+		return nil, fmt.Errorf("link value was empty")
+	}
+
+	// TODO: manually doing multibase checking here since our deps don't
+	// support binary multibase yet
+	if barr[0] != 0 {
+		return nil, fmt.Errorf("invalid multibase on ipld link")
+	}
+
+	c, err := cid.Cast(barr[1:])
 	if err != nil {
 		return nil, err
 	}
