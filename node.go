@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-node"
-	mh "github.com/multiformats/go-multihash"
-	cbor "github.com/whyrusleeping/cbor/go"
+	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
+	node "gx/ipfs/QmRSU5EqqWVZSNdbU51yXmVoF1uNw3JgTNB6RaiL7DZM16/go-ipld-node"
+	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
+	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
 )
 
 const CBORTagLink = 42
@@ -31,7 +31,7 @@ func Decode(b []byte) (n *Node, err error) {
 		return nil, err
 	}
 
-	return WrapMap(m)
+	return WrapObject(m)
 }
 
 // DecodeInto decodes a serialized ipld cbor object into the given object.
@@ -68,7 +68,7 @@ type Node struct {
 	raw   []byte
 }
 
-func WrapMap(m interface{}) (*Node, error) {
+func WrapObject(m interface{}) (*Node, error) {
 	nd := &Node{obj: m}
 	tree, err := nd.compTree()
 	if err != nil {
@@ -398,13 +398,18 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 }
 
 func FromJson(r io.Reader) (*Node, error) {
-	var m map[string]interface{}
+	var m interface{}
 	err := json.NewDecoder(r).Decode(&m)
 	if err != nil {
 		return nil, err
 	}
 
-	return convertJsonToCbor(m)
+	obj, err := convertToCborIshObj(m)
+	if err != nil {
+		return nil, err
+	}
+
+	return WrapObject(obj)
 }
 
 func convertJsonToCbor(from map[string]interface{}) (*Node, error) {
@@ -413,7 +418,7 @@ func convertJsonToCbor(from map[string]interface{}) (*Node, error) {
 		return nil, err
 	}
 
-	return WrapMap(out)
+	return WrapObject(out)
 }
 
 func convertMapSIToCbor(from map[string]interface{}) (map[interface{}]interface{}, error) {

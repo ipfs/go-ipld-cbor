@@ -6,8 +6,8 @@ import (
 	"sort"
 	"testing"
 
-	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
+	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
+	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
 )
 
 type testObject struct {
@@ -67,7 +67,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 		},
 	}
 
-	nd1, err := WrapMap(obj)
+	nd1, err := WrapObject(obj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestTree(t *testing.T) {
 		},
 	}
 
-	nd, err := WrapMap(obj)
+	nd, err := WrapObject(obj)
 	if err != nil {
 		t.Fatal(err)
 	}
