@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	cbor "gx/ipfs/QmPL3RCWaM6s7b82LSLS1MGX2jpxPxA1v2vmgLm15b1NcW/cbor/go"
-	node "gx/ipfs/QmRSU5EqqWVZSNdbU51yXmVoF1uNw3JgTNB6RaiL7DZM16/go-ipld-node"
-	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
-	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
+	cbor "github.com/whyrusleeping/cbor/go"
 )
 
 const CBORTagLink = 42
@@ -357,7 +357,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 			return nil, err
 		}
 
-		return c, nil
+		return map[string]interface{}{"/": c}, nil
 	}
 	out := make(map[string]interface{})
 	for k, v := range n {
@@ -392,6 +392,8 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 			out = append(out, obj)
 		}
 		return out, nil
+	case *cid.Cid:
+		return map[string]interface{}{"/": v}, nil
 	default:
 		return v, nil
 	}

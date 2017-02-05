@@ -6,34 +6,29 @@ import (
 	"sort"
 	"testing"
 
-	u "gx/ipfs/Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr/go-ipfs-util"
-	cid "gx/ipfs/QmcTcsTvfaeEBRFo1TkFgT8sRmgi1n1LTZpecfVP8fzpGD/go-cid"
+	cid "github.com/ipfs/go-cid"
+	u "github.com/ipfs/go-ipfs-util"
 )
-
-type testObject struct {
-	Name string
-	Bar  *cid.Cid
-}
 
 func TestBasicMarshal(t *testing.T) {
 	c := cid.NewCidV0(u.Hash([]byte("something")))
 
-	obj := testObject{
-		Name: "foo",
-		Bar:  c,
+	obj := map[string]interface{}{
+		"name": "foo",
+		"bar":  c,
 	}
 
-	out, err := DumpObject(&obj)
+	nd, err := WrapObject(obj)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	back, err := Decode(out)
+	back, err := Decode(nd.RawData())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	lnk, _, err := back.ResolveLink([]string{"Bar"})
+	lnk, _, err := back.ResolveLink([]string{"bar"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,13 +37,9 @@ func TestBasicMarshal(t *testing.T) {
 		t.Fatal("expected cid to match")
 	}
 
-	var obj2 testObject
-	err = DecodeInto(out, &obj2)
-	if err != nil {
-		t.Fatal(err)
+	if !nd.Cid().Equals(back.Cid()) {
+		t.Fatal("re-serialize failed to generate same cid")
 	}
-
-	t.Logf("%#v", obj2)
 }
 
 func TestMarshalRoundtrip(t *testing.T) {
