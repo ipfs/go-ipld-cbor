@@ -2,7 +2,6 @@ package cbornode
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"testing"
 
@@ -200,12 +199,13 @@ func TestFromJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(n.obj.(map[interface{}]interface{})["something"])
-
-	out, err := n.MarshalJSON()
-	if err != nil {
-		t.Fatal(err)
+	c, ok := n.obj.(map[interface{}]interface{})["something"].(*cid.Cid)
+	if !ok {
+		t.Fatal("expected a cid")
 	}
 
-	fmt.Println(string(out))
+	if c.String() != "zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw" {
+		t.Fatal("cid unmarshaled wrong")
+	}
+
 }
