@@ -357,7 +357,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 			return nil, err
 		}
 
-		return c, nil
+		return map[string]interface{}{"/": c}, nil
 	}
 	out := make(map[string]interface{})
 	for k, v := range n {
@@ -392,6 +392,8 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 			out = append(out, obj)
 		}
 		return out, nil
+	case *cid.Cid:
+		return map[string]interface{}{"/": v}, nil
 	default:
 		return v, nil
 	}
