@@ -209,3 +209,15 @@ func TestFromJson(t *testing.T) {
 	}
 
 }
+
+func TestNull(t *testing.T) {
+	data := `[null]`
+	n, err := FromJson(bytes.NewReader([]byte(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n.String() != "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj" {
+		t.Fatal("null unmarshaled wrong: " + n.String())
+	}
+}
