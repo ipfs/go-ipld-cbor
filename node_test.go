@@ -227,5 +227,14 @@ func TestNull(t *testing.T) {
 	        t.Fatal(err)
 	}
 
-	t.Log(j)
+	node, err := Decode(cbor)
+        if err != nil {
+	   t.Fatal(err)
+        }
+
+	jsonBytes, err := node.MarshalJSON()
+	json := string(jsonBytes)
+	if json != "[null]" {
+	   t.Fatal("marshaled to incorrect JSON: " + json)
+	}
 }
