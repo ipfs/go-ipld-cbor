@@ -220,4 +220,12 @@ func TestNull(t *testing.T) {
 	if n.String() != "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj" {
 		t.Fatal("null unmarshaled wrong: " + n.String())
 	}
+
+	cbor := n.RawData()
+	j, err := Decode(cbor)
+	if err != nil {
+	        t.Fatal(err)
+	}
+
+	t.Log(j)
 }
