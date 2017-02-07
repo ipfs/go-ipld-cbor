@@ -210,31 +210,29 @@ func TestFromJson(t *testing.T) {
 
 }
 
-func TestNull(t *testing.T) {
-	data := `[null]`
-	n, err := FromJson(bytes.NewReader([]byte(data)))
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestExamples(t *testing.T) {
+    examples := []string{"[null]", "{}"}
+    for _, originalJson := range(examples) {
+		n, err := FromJson(bytes.NewReader([]byte(originalJson)))
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if n.String() != "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj" {
-		t.Fatal("null unmarshaled wrong: " + n.String())
-	}
+		cbor := n.RawData()
+		node, err := Decode(cbor)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	cbor := n.RawData()
-	j, err := Decode(cbor)
-	if err != nil {
-	        t.Fatal(err)
-	}
-
-	node, err := Decode(cbor)
-        if err != nil {
-	   t.Fatal(err)
+		node, err = Decode(cbor)
+		if err != nil {
+			t.Fatal(err)
         }
 
-	jsonBytes, err := node.MarshalJSON()
-	json := string(jsonBytes)
-	if json != "[null]" {
-	   t.Fatal("marshaled to incorrect JSON: " + json)
+		jsonBytes, err := node.MarshalJSON()
+		json := string(jsonBytes)
+		if json != originalJson {
+			t.Fatal("marshaled to incorrect JSON: " + json)
+		}
 	}
 }
