@@ -383,6 +383,9 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 		return toSaneMap(v)
 	case []interface{}:
 		var out []interface{}
+		if len(v) == 0 && v != nil {
+			return []interface{}{}, nil
+		}
 		for _, i := range v {
 			obj, err := convertToJsonIsh(i)
 			if err != nil {
