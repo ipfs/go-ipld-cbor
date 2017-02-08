@@ -395,6 +395,8 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 			out = append(out, obj)
 		}
 		return out, nil
+	case *cid.Cid:
+		return map[string]interface{}{"/": v.String()}, nil
 	default:
 		return v, nil
 	}
