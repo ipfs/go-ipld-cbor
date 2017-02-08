@@ -211,7 +211,8 @@ func TestFromJson(t *testing.T) {
 }
 
 func TestExamples(t *testing.T) {
-    examples := []string{"[null]", "{}", "null", "1", "[1]", "true", `{"a":"IPFS"}`, `{"a":"IPFS","b":null,"c":[1]}`}
+     // "[]" fails because json.Marshal(empty list) returns null rather than []
+    examples := []string{"[null]", "[]", "{}", "null", "1", "[1]", "true", `{"a":"IPFS"}`, `{"a":"IPFS","b":null,"c":[1]}`}
     for _, originalJson := range(examples) {
 		n, err := FromJson(bytes.NewReader([]byte(originalJson)))
 		if err != nil {
