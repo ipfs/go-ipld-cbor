@@ -211,7 +211,7 @@ func TestFromJson(t *testing.T) {
 }
 
 func TestExamples(t *testing.T) {
-    examples := []string{"[null]", "{}"}
+    examples := []string{"[null]", "{}", "null", "1", "[1]", "true"}
     for _, originalJson := range(examples) {
 		n, err := FromJson(bytes.NewReader([]byte(originalJson)))
 		if err != nil {
