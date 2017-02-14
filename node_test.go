@@ -2,11 +2,13 @@ package cbornode
 
 import (
 	"bytes"
+	"encoding/json"
 	"sort"
+	"strings"
 	"testing"
 
-	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
+	cid "gx/ipfs/QmV5gPoRsjN1Gid3LMdNZTyfCtP2DsvqEbMAmz82RmmiGk/go-cid"
+	u "gx/ipfs/QmZuY8aV7zbNXVy6DyN9SmnuH3o9nG852F4aTiSBpts8d1/go-ipfs-util"
 )
 
 func TestBasicMarshal(t *testing.T) {
@@ -207,11 +209,36 @@ func TestFromJson(t *testing.T) {
 	if c.String() != "zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw" {
 		t.Fatal("cid unmarshaled wrong")
 	}
+}
 
+func TestResolvedValIsJsonable(t *testing.T) {
+	data := `{
+		"foo": {
+			"bar": 1,
+			"baz": 2
+		}
+	}`
+	n, err := FromJson(strings.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, _, err := n.Resolve([]string{"foo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := json.Marshal(val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(out) != `{"bar":1,"baz":2}` {
+		t.Fatal("failed to get expected json")
+	}
 }
 
 func TestExamples(t *testing.T) {
-	// "[]" fails because json.Marshal(empty list) returns null rather than []
 	examples := []string{
 		"[null]",
 		"[]",

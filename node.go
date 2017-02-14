@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-node"
-	mh "github.com/multiformats/go-multihash"
-	cbor "github.com/whyrusleeping/cbor/go"
+	cid "gx/ipfs/QmV5gPoRsjN1Gid3LMdNZTyfCtP2DsvqEbMAmz82RmmiGk/go-cid"
+	cbor "gx/ipfs/QmVQfuckfPnW5LGmgSWsJVJr6Xea1bWXD8sBixe8E9MQD6/cbor/go"
+	node "gx/ipfs/QmYDscK7dmdo2GZ9aumS8s5auUUAH5mR1jvj5pYhWusfK7/go-ipld-node"
+	mh "gx/ipfs/QmbZ6Cee2uHjG7hf19qLHppgKDRtaG4CVtMzdmK9VCVqLu/go-multihash"
 )
 
 const CBORTagLink = 42
@@ -128,7 +128,12 @@ func (n Node) Resolve(path []string) (interface{}, []string, error) {
 		return &node.Link{Cid: lnk}, nil, nil
 	}
 
-	return cur, nil, nil
+	jsonish, err := convertToJsonIsh(cur)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return jsonish, nil, nil
 }
 
 func (n *Node) Copy() node.Node {
