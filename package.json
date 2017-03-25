@@ -9,21 +9,21 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmYDscK7dmdo2GZ9aumS8s5auUUAH5mR1jvj5pYhWusfK7",
-      "name": "go-ipld-node",
-      "version": "0.4.5"
+      "hash": "Qmb3Hm9QDFmfYuET4pu7Kyg8JV78jFa1nvZx5vnCZsK4ck",
+      "name": "go-ipld-format",
+      "version": "0.4.6"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmV5gPoRsjN1Gid3LMdNZTyfCtP2DsvqEbMAmz82RmmiGk",
+      "hash": "QmYhQaCYEcaPPjxJX7YcPcVKkQfRy6sJ7B3XmGFk82XYdQ",
       "name": "go-cid",
-      "version": "0.7.11"
+      "version": "0.7.12"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmZuY8aV7zbNXVy6DyN9SmnuH3o9nG852F4aTiSBpts8d1",
+      "hash": "QmWbjfz3u6HkAdPh34dgPchGbQjob6LXLhAeCGii2TX69n",
       "name": "go-ipfs-util",
-      "version": "1.2.0"
+      "version": "1.2.4"
     },
     {
       "author": "whyrusleeping",
@@ -37,6 +37,6 @@
   "license": "",
   "name": "go-ipld-cbor",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.2.1"
+  "version": "1.2.2"
 }
 
