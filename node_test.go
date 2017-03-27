@@ -3,6 +3,7 @@ package cbornode
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -10,6 +11,13 @@ import (
 	cid "github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
 )
+
+func assertCid(c *cid.Cid, exp string) error {
+	if c.String() != exp {
+		return fmt.Errorf("expected cid of %s, got %s", exp, c)
+	}
+	return nil
+}
 
 func TestBasicMarshal(t *testing.T) {
 	c := cid.NewCidV0(u.Hash([]byte("something")))
@@ -24,8 +32,16 @@ func TestBasicMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := assertCid(nd.Cid(), "zdpuApUZEHofKXuTs2Yv2CLBeiASQrc9FojFLSZWcyZq6dZhb"); err != nil {
+		t.Fatal(err)
+	}
+
 	back, err := Decode(nd.RawData())
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := assertCid(back.Cid(), "zdpuApUZEHofKXuTs2Yv2CLBeiASQrc9FojFLSZWcyZq6dZhb"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,6 +77,10 @@ func TestMarshalRoundtrip(t *testing.T) {
 
 	nd1, err := WrapObject(obj)
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := assertCid(nd1.Cid(), "zdpuAwc5bPhfHGdA4rs3qKzr3QB3Fjp3D16C8BRRyWzTPpY9R"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,6 +159,9 @@ func TestTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := assertCid(nd.Cid(), "zdpuAqobkonFx9i79VEDiz2WcU2dC1YU8ApEVRwSC8sx5cjUP"); err != nil {
+		t.Fatal(err)
+	}
 
 	full := []string{
 		"foo",
@@ -183,7 +206,13 @@ func TestParsing(t *testing.T) {
 	b := []byte("\xd9\x01\x02\x58\x25\xa5\x03\x22\x12\x20\x65\x96\x50\xfc\x34\x43\xc9\x16\x42\x80\x48\xef\xc5\xba\x45\x58\xdc\x86\x35\x94\x98\x0a\x59\xf5\xcb\x3c\x4d\x84\x86\x7e\x6d\x31")
 
 	n, err := Decode(b)
-	t.Log(n, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := assertCid(n.Cid(), "zdpuApUpLTkn3YYUeuMjWToYn8nt4KQY9kQqd9uL6vwHxXnQN"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestFromJson(t *testing.T) {
@@ -201,6 +230,10 @@ func TestFromJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := assertCid(n.Cid(), "zdpuAqdmDwJ7oDv9cD4hp3yjXgWe9yhZDzRaFbRPin1c4Dz1y"); err != nil {
+		t.Fatal(err)
+	}
+
 	c, ok := n.obj.(map[interface{}]interface{})["something"].(*cid.Cid)
 	if !ok {
 		t.Fatal("expected a cid")
@@ -222,6 +255,9 @@ func TestResolvedValIsJsonable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := assertCid(n.Cid(), "zdpuAku712jAPTQBrP58frxKxeAcVZZczXNCMwBPcKJJDZWdn"); err != nil {
+		t.Fatal(err)
+	}
 
 	val, _, err := n.Resolve([]string{"foo"})
 	if err != nil {
@@ -239,22 +275,25 @@ func TestResolvedValIsJsonable(t *testing.T) {
 }
 
 func TestExamples(t *testing.T) {
-	examples := []string{
-		"[null]",
-		"[]",
-		"{}",
-		"null",
-		"1",
-		"[1]",
-		"true",
-		`{"a":"IPFS"}`,
-		`{"a":"IPFS","b":null,"c":[1]}`,
-		`{"a":[]}`,
+	examples := map[string]string{
+		"[null]":                        "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj",
+		"[]":                            "zdpuAtQy7GSHNcZxdBfmtowdL1d2WAFjJBwb6WAEfFJ6T4Gbi",
+		"{}":                            "zdpuAyTBnYSugBZhqJuLsNpzjmAjSmxDqBbtAqXMtsvxiN2v3",
+		"null":                          "zdpuAxKCBsAKQpEw456S49oVDkWJ9PZa44KGRfVBWHiXN3UH8",
+		"1":                             "zdpuB2pwLskBDu5PZE2sepLyc3SRFPFgVXmnpzXVtWgam25kY",
+		"[1]":                           "zdpuB31oq9uvbqcSTySbWhD9NMBJDjsUXKtyQNhFAsYNbYH95",
+		"true":                          "zdpuAo6JPKbsmgmtujhh7mGywsAwPRmtyAYZBPKYYRjyLujD1",
+		`{"a":"IPFS"}`:                  "zdpuB3AZ71ccMjBB9atM97R4wSaCYjGyztnHnjUu93t4B2XqY",
+		`{"a":"IPFS","b":null,"c":[1]}`: "zdpuAyoYWNEe6xcGhkYk2SUfc7Rtbk4GkmZCrNAAnpft4Mmj5",
+		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw",
 	}
-	for _, originalJson := range examples {
+	for originalJson, expcid := range examples {
 		n, err := FromJson(bytes.NewReader([]byte(originalJson)))
 		if err != nil {
 			t.Fatal(err)
+		}
+		if err := assertCid(n.Cid(), expcid); err != nil {
+			t.Fatalf("for object %s: %s", originalJson, err)
 		}
 
 		cbor := n.RawData()
