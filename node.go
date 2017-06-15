@@ -66,6 +66,7 @@ type Node struct {
 	tree  []string
 	links []*node.Link
 	raw   []byte
+	cid   *cid.Cid
 }
 
 func WrapObject(m interface{}) (*Node, error) {
@@ -151,6 +152,7 @@ func (n *Node) Copy() node.Node {
 		links: links,
 		raw:   raw,
 		tree:  tree,
+		cid:   n.cid,
 	}
 }
 
@@ -317,9 +319,12 @@ func DumpObject(obj interface{}) ([]byte, error) {
 }
 
 func (n Node) Cid() *cid.Cid {
-	data := n.RawData()
-	hash, _ := mh.Sum(data, mh.SHA2_256, -1)
-	return cid.NewCidV1(cid.DagCBOR, hash)
+	if n.cid == nil {
+		data := n.RawData()
+		hash, _ := mh.Sum(data, mh.SHA2_256, -1)
+		n.cid = cid.NewCidV1(cid.DagCBOR, hash)
+	}
+	return n.cid
 }
 
 func (n Node) Loggable() map[string]interface{} {
