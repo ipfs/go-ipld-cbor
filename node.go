@@ -94,7 +94,7 @@ func WrapObject(m interface{}) (*Node, error) {
 	return nd, nil
 }
 
-func (n Node) Resolve(path []string) (interface{}, []string, error) {
+func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 	var cur interface{} = n.obj
 	for i, val := range path {
 		switch curv := cur.(type) {
@@ -175,7 +175,7 @@ func copyObj(i interface{}) interface{} {
 	}
 }
 
-func (n Node) ResolveLink(path []string) (*node.Link, []string, error) {
+func (n *Node) ResolveLink(path []string) (*node.Link, []string, error) {
 	obj, rest, err := n.Resolve(path)
 	if err != nil {
 		return nil, nil, err
@@ -247,7 +247,7 @@ func (n *Node) compTree() ([]string, error) {
 	return out, nil
 }
 
-func (n Node) Links() []*node.Link {
+func (n *Node) Links() []*node.Link {
 	return n.links
 }
 
@@ -296,7 +296,7 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 	}
 }
 
-func (n Node) RawData() []byte {
+func (n *Node) RawData() []byte {
 	return n.raw
 }
 
@@ -316,32 +316,32 @@ func DumpObject(obj interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (n Node) Cid() *cid.Cid {
+func (n *Node) Cid() *cid.Cid {
 	data := n.RawData()
 	hash, _ := mh.Sum(data, mh.SHA2_256, -1)
 	return cid.NewCidV1(cid.DagCBOR, hash)
 }
 
-func (n Node) Loggable() map[string]interface{} {
+func (n *Node) Loggable() map[string]interface{} {
 	return map[string]interface{}{
 		"node_type": "cbor",
 		"cid":       n.Cid(),
 	}
 }
 
-func (n Node) Size() (uint64, error) {
+func (n *Node) Size() (uint64, error) {
 	return uint64(len(n.RawData())), nil
 }
 
-func (n Node) Stat() (*node.NodeStat, error) {
+func (n *Node) Stat() (*node.NodeStat, error) {
 	return &node.NodeStat{}, nil
 }
 
-func (n Node) String() string {
+func (n *Node) String() string {
 	return n.Cid().String()
 }
 
-func (n Node) MarshalJSON() ([]byte, error) {
+func (n *Node) MarshalJSON() ([]byte, error) {
 	out, err := convertToJsonIsh(n.obj)
 	if err != nil {
 		return nil, err
