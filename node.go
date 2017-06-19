@@ -147,7 +147,7 @@ func (n *Node) Copy() node.Node {
 	copy(tree, n.tree)
 
 	return &Node{
-		obj:   copyObj(n.obj).(map[interface{}]interface{}),
+		obj:   copyObj(n.obj),
 		links: links,
 		raw:   raw,
 		tree:  tree,

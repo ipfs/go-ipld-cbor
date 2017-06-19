@@ -19,6 +19,25 @@ func assertCid(c *cid.Cid, exp string) error {
 	return nil
 }
 
+func TestNonObject(t *testing.T) {
+	nd, err := WrapObject("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assertCid(nd.Cid(), "zdpuAuvdvGBYa3apsrf63GU9RZcrf5EBwvb82pHjUTyecbvD8"); err != nil {
+		t.Fatal(err)
+	}
+
+	back, err := Decode(nd.Copy().RawData())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := assertCid(back.Cid(), "zdpuAuvdvGBYa3apsrf63GU9RZcrf5EBwvb82pHjUTyecbvD8"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBasicMarshal(t *testing.T) {
 	c := cid.NewCidV0(u.Hash([]byte("something")))
 
