@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	node "github.com/ipfs/go-ipld-format"
 	mh "github.com/multiformats/go-multihash"
@@ -17,21 +18,38 @@ import (
 
 const CBORTagLink = 42
 
+func init() {
+	// Register the block decoder
+	node.DefaultBlockDecoder[cid.DagCBOR] = func(b blocks.Block) (node.Node, error) { return DecodeBlock(b) }
+}
+
 func Decode(b []byte) (n *Node, err error) {
+	hash, err := mh.Sum(b, mh.SHA2_256, -1)
+	if err != nil {
+		return nil, err
+	}
+	c := cid.NewCidV1(cid.DagCBOR, hash)
+	block, err := blocks.NewBlockWithCid(b, c)
+	if err != nil {
+		return nil, err
+	}
+	return DecodeBlock(block)
+}
+
+func DecodeBlock(block blocks.Block) (n *Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cbor panic: %s", r)
 		}
 	}()
 	var m interface{}
-	dec := cbor.NewDecoder(bytes.NewReader(b))
+	dec := cbor.NewDecoder(bytes.NewReader(block.RawData()))
 	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
 	err = dec.Decode(&m)
 	if err != nil {
 		return nil, err
 	}
-
-	return WrapObject(m)
+	return makeNode(block, m)
 }
 
 // DecodeInto decodes a serialized ipld cbor object into the given object.
@@ -66,32 +84,45 @@ type Node struct {
 	tree  []string
 	links []*node.Link
 	raw   []byte
+	cid   *cid.Cid
+}
+
+// Takes an encoded block and a decoded cbor object and builds a node object.
+func makeNode(block blocks.Block, obj interface{}) (*Node, error) {
+	tree, err := compTree(obj)
+	if err != nil {
+		return nil, err
+	}
+	links, err := compLinks(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &Node{
+		obj:   obj,
+		tree:  tree,
+		links: links,
+		raw:   block.RawData(),
+		cid:   block.Cid(),
+	}, nil
 }
 
 func WrapObject(m interface{}) (*Node, error) {
-	nd := &Node{obj: m}
-	tree, err := nd.compTree()
+	data, err := DumpObject(m)
 	if err != nil {
 		return nil, err
 	}
-
-	nd.tree = tree
-
-	links, err := nd.compLinks()
+	hash, err := mh.Sum(data, mh.SHA2_256, -1)
 	if err != nil {
 		return nil, err
 	}
+	c := cid.NewCidV1(cid.DagCBOR, hash)
 
-	nd.links = links
-
-	data, err := nd.rawData()
+	block, err := blocks.NewBlockWithCid(data, c)
 	if err != nil {
+		// TODO: Shouldn't this just panic?
 		return nil, err
 	}
-
-	nd.raw = data
-
-	return nd, nil
+	return makeNode(block, m)
 }
 
 func (n *Node) Resolve(path []string) (interface{}, []string, error) {
@@ -151,6 +182,7 @@ func (n *Node) Copy() node.Node {
 		links: links,
 		raw:   raw,
 		tree:  tree,
+		cid:   n.cid,
 	}
 }
 
@@ -232,9 +264,9 @@ func (n *Node) Tree(path string, depth int) []string {
 	return out
 }
 
-func (n *Node) compTree() ([]string, error) {
+func compTree(obj interface{}) ([]string, error) {
 	var out []string
-	err := traverse(n.obj, "", func(name string, val interface{}) error {
+	err := traverse(obj, "", func(name string, val interface{}) error {
 		if name != "" {
 			out = append(out, name[1:])
 		}
@@ -251,9 +283,9 @@ func (n *Node) Links() []*node.Link {
 	return n.links
 }
 
-func (n *Node) compLinks() ([]*node.Link, error) {
+func compLinks(obj interface{}) ([]*node.Link, error) {
 	var out []*node.Link
-	err := traverse(n.obj, "", func(name string, val interface{}) error {
+	err := traverse(obj, "", func(name string, val interface{}) error {
 		if lnk, ok := val.(*cid.Cid); ok {
 			out = append(out, &node.Link{Cid: lnk})
 		}
@@ -298,10 +330,6 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 
 func (n *Node) RawData() []byte {
 	return n.raw
-}
-
-func (n *Node) rawData() ([]byte, error) {
-	return DumpObject(n.obj)
 }
 
 func DumpObject(obj interface{}) ([]byte, error) {
