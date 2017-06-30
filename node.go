@@ -23,19 +23,36 @@ func init() {
 	node.DefaultBlockDecoder[cid.DagCBOR] = func(b blocks.Block) (node.Node, error) { return DecodeBlock(b) }
 }
 
-func Decode(b []byte) (n *Node, err error) {
-	hash, err := mh.Sum(b, mh.SHA2_256, -1)
+// Decode a CBOR object into an IPLD Node.
+//
+// If passed a non-canonical CBOR node, this function will canonicalize it.
+// Therefore, `bytes.Equal(b, Decode(b).RawData())` may not hold. If you already
+// have a CID for this data and want to ensure that it doesn't change, you
+// should use `DecodeBlock`.
+//
+// Note: This function does not hold onto `b`. You may reuse it.
+func Decode(b []byte) (*Node, error) {
+	m, err := decodeCBOR(b)
 	if err != nil {
 		return nil, err
 	}
-	c := cid.NewCidV1(cid.DagCBOR, hash)
-	block, err := blocks.NewBlockWithCid(b, c)
-	if err != nil {
-		return nil, err
-	}
-	return DecodeBlock(block)
+	// We throw away `b` here to ensure that we canonicalize the encoded
+	// CBOR object.
+	return WrapObject(m)
 }
 
+// Decode a CBOR encoded Block into an IPLD Node.
+//
+// This method *does not* canonicalize and *will* preserve the CID. As a matter
+// of fact, it will assume that `block.Cid()` returns the correct CID and will
+// make no effort to validate this assumption.
+//
+// In general, you should not be calling this method directly. Instead, you
+// should be calling the `Decode` method from the `go-ipld-format` package. That
+// method will pick the right decoder based on the Block's CID.
+//
+// Note: This function keeps a reference to `block` and assumes that it is
+// immutable.
 func DecodeBlock(block blocks.Block) (n *Node, err error) {
 	m, err := decodeCBOR(block.RawData())
 	if err != nil {
