@@ -38,6 +38,38 @@ func TestNonObject(t *testing.T) {
 	}
 }
 
+func TestDecodeInto(t *testing.T) {
+	nd, err := WrapObject(map[string]string{
+		"name": "foo",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]string
+	err = DecodeInto(nd.RawData(), &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m) != 1 || m["name"] != "foo" {
+		t.Fatal("failed to decode object")
+	}
+}
+
+func TestDecodeIntoNonObject(t *testing.T) {
+	nd, err := WrapObject("foobar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s string
+	err = DecodeInto(nd.RawData(), &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s != "foobar" {
+		t.Fatal("strings don't match")
+	}
+}
+
 func TestBasicMarshal(t *testing.T) {
 	c := cid.NewCidV0(u.Hash([]byte("something")))
 

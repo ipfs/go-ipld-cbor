@@ -37,15 +37,7 @@ func Decode(b []byte) (n *Node, err error) {
 }
 
 func DecodeBlock(block blocks.Block) (n *Node, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cbor panic: %s", r)
-		}
-	}()
-	var m interface{}
-	dec := cbor.NewDecoder(bytes.NewReader(block.RawData()))
-	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
-	err = dec.Decode(&m)
+	m, err := decodeCBOR(block.RawData())
 	if err != nil {
 		return nil, err
 	}
@@ -55,15 +47,12 @@ func DecodeBlock(block blocks.Block) (n *Node, err error) {
 // DecodeInto decodes a serialized ipld cbor object into the given object.
 func DecodeInto(b []byte, v interface{}) error {
 	// The cbor library really doesnt make this sort of operation easy on us
-	var m map[interface{}]interface{}
-	dec := cbor.NewDecoder(bytes.NewReader(b))
-	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
-	err := dec.Decode(&m)
+	m, err := decodeCBOR(b)
 	if err != nil {
 		return err
 	}
 
-	jsonable, err := toSaneMap(m)
+	jsonable, err := convertToJsonIsh(m)
 	if err != nil {
 		return err
 	}
@@ -75,6 +64,19 @@ func DecodeInto(b []byte, v interface{}) error {
 
 	return json.Unmarshal(jsonb, v)
 
+}
+
+// Decodes a cbor node into an object.
+func decodeCBOR(b []byte) (m interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("cbor panic: %s", r)
+		}
+	}()
+	dec := cbor.NewDecoder(bytes.NewReader(b))
+	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
+	err = dec.Decode(&m)
+	return
 }
 
 var ErrNoSuchLink = errors.New("no such link found")
