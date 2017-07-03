@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strings"
 	"testing"
 
+	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
+	mh "github.com/multiformats/go-multihash"
 )
 
 func assertCid(c *cid.Cid, exp string) error {
@@ -35,6 +38,38 @@ func TestNonObject(t *testing.T) {
 
 	if err := assertCid(back.Cid(), "zdpuAuvdvGBYa3apsrf63GU9RZcrf5EBwvb82pHjUTyecbvD8"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDecodeInto(t *testing.T) {
+	nd, err := WrapObject(map[string]string{
+		"name": "foo",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]string
+	err = DecodeInto(nd.RawData(), &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m) != 1 || m["name"] != "foo" {
+		t.Fatal("failed to decode object")
+	}
+}
+
+func TestDecodeIntoNonObject(t *testing.T) {
+	nd, err := WrapObject("foobar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s string
+	err = DecodeInto(nd.RawData(), &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s != "foobar" {
+		t.Fatal("strings don't match")
 	}
 }
 
@@ -331,5 +366,58 @@ func TestExamples(t *testing.T) {
 		if json != originalJson {
 			t.Fatal("marshaled to incorrect JSON: " + json)
 		}
+	}
+}
+
+func TestCanonicalize(t *testing.T) {
+	b, err := ioutil.ReadFile("test_objects/non-canon.cbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nd1, err := Decode(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(b, nd1.RawData()) {
+		t.Fatal("failed to canonicalize node")
+	}
+
+	if err := assertCid(nd1.Cid(), "zdpuAmxF8q6iTUtkB3xtEYzmc5Sw762qwQJftt5iW8NTWLtjC"); err != nil {
+		t.Fatal(err)
+	}
+
+	nd2, err := Decode(nd1.RawData())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !nd2.Cid().Equals(nd1.Cid()) || !bytes.Equal(nd2.RawData(), nd1.RawData()) {
+		t.Fatal("re-decoding a canonical node should be idempotent")
+	}
+}
+
+func TestStableCID(t *testing.T) {
+	b, err := ioutil.ReadFile("test_objects/non-canon.cbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hash, err := mh.Sum(b, mh.SHA2_256, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := cid.NewCidV1(cid.DagCBOR, hash)
+
+	badBlock, err := blocks.NewBlockWithCid(b, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badNode, err := DecodeBlock(badBlock)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !badBlock.Cid().Equals(badNode.Cid()) {
+		t.Fatal("CIDs not stable")
 	}
 }

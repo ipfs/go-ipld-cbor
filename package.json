@@ -30,6 +30,12 @@
       "hash": "QmVQfuckfPnW5LGmgSWsJVJr6Xea1bWXD8sBixe8E9MQD6",
       "name": "cbor",
       "version": "0.2.1"
+    },
+    {
+      "author": "stebalien",
+      "hash": "QmbJUay5h1HtzhJb5QQk2t26yCnJksHynvhcqp18utBPqG",
+      "name": "go-block-format",
+      "version": "0.1.1"
     }
   ],
   "gxVersion": "0.10.0",
@@ -37,6 +43,6 @@
   "license": "",
   "name": "go-ipld-cbor",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.2.3"
+  "version": "1.2.4"
 }
 
