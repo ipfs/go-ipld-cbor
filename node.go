@@ -18,10 +18,27 @@ import (
 
 const CBORTagLink = 42
 
-func init() {
-	// Register the block decoder
-	node.DefaultBlockDecoder[cid.DagCBOR] = func(b blocks.Block) (node.Node, error) { return DecodeBlock(b) }
+// Decode a CBOR encoded Block into an IPLD Node.
+//
+// This method *does not* canonicalize and *will* preserve the CID. As a matter
+// of fact, it will assume that `block.Cid()` returns the correct CID and will
+// make no effort to validate this assumption.
+//
+// In general, you should not be calling this method directly. Instead, you
+// should be calling the `Decode` method from the `go-ipld-format` package. That
+// method will pick the right decoder based on the Block's CID.
+//
+// Note: This function keeps a reference to `block` and assumes that it is
+// immutable.
+func DecodeBlock(block blocks.Block) (node.Node, error) {
+	m, err := decodeCBOR(block.RawData())
+	if err != nil {
+		return nil, err
+	}
+	return makeNode(block, m)
 }
+
+var _ node.DecodeBlockFunc = DecodeBlock
 
 // Decode a CBOR object into an IPLD Node.
 //
@@ -39,26 +56,6 @@ func Decode(b []byte) (*Node, error) {
 	// We throw away `b` here to ensure that we canonicalize the encoded
 	// CBOR object.
 	return WrapObject(m)
-}
-
-// Decode a CBOR encoded Block into an IPLD Node.
-//
-// This method *does not* canonicalize and *will* preserve the CID. As a matter
-// of fact, it will assume that `block.Cid()` returns the correct CID and will
-// make no effort to validate this assumption.
-//
-// In general, you should not be calling this method directly. Instead, you
-// should be calling the `Decode` method from the `go-ipld-format` package. That
-// method will pick the right decoder based on the Block's CID.
-//
-// Note: This function keeps a reference to `block` and assumes that it is
-// immutable.
-func DecodeBlock(block blocks.Block) (n *Node, err error) {
-	m, err := decodeCBOR(block.RawData())
-	if err != nil {
-		return nil, err
-	}
-	return makeNode(block, m)
 }
 
 // DecodeInto decodes a serialized ipld cbor object into the given object.
