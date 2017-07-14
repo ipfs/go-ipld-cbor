@@ -31,11 +31,29 @@ const CBORTagLink = 42
 // Note: This function keeps a reference to `block` and assumes that it is
 // immutable.
 func DecodeBlock(block blocks.Block) (node.Node, error) {
+	return decodeBlock(block)
+}
+
+func decodeBlock(block blocks.Block) (*Node, error) {
 	m, err := decodeCBOR(block.RawData())
 	if err != nil {
 		return nil, err
 	}
-	return makeNode(block, m)
+	tree, err := compTree(m)
+	if err != nil {
+		return nil, err
+	}
+	links, err := compLinks(m)
+	if err != nil {
+		return nil, err
+	}
+	return &Node{
+		obj:   m,
+		tree:  tree,
+		links: links,
+		raw:   block.RawData(),
+		cid:   block.Cid(),
+	}, nil
 }
 
 var _ node.DecodeBlockFunc = DecodeBlock
@@ -103,25 +121,6 @@ type Node struct {
 	cid   *cid.Cid
 }
 
-// Takes an encoded block and a decoded cbor object and builds a node object.
-func makeNode(block blocks.Block, obj interface{}) (*Node, error) {
-	tree, err := compTree(obj)
-	if err != nil {
-		return nil, err
-	}
-	links, err := compLinks(obj)
-	if err != nil {
-		return nil, err
-	}
-	return &Node{
-		obj:   obj,
-		tree:  tree,
-		links: links,
-		raw:   block.RawData(),
-		cid:   block.Cid(),
-	}, nil
-}
-
 func WrapObject(m interface{}) (*Node, error) {
 	data, err := DumpObject(m)
 	if err != nil {
@@ -138,7 +137,9 @@ func WrapObject(m interface{}) (*Node, error) {
 		// TODO: Shouldn't this just panic?
 		return nil, err
 	}
-	return makeNode(block, m)
+	// Do not reuse `m`. We need to re-decode it to put it in the right
+	// form.
+	return decodeBlock(block)
 }
 
 func (n *Node) Resolve(path []string) (interface{}, []string, error) {

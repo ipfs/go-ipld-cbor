@@ -124,7 +124,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 			c1,
 			c2,
 		},
-		"cats": map[interface{}]interface{}{
+		"cats": map[string]interface{}{
 			"qux": c3,
 		},
 	}
@@ -193,16 +193,16 @@ func TestTree(t *testing.T) {
 	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
 	c4 := cid.NewCidV0(u.Hash([]byte("something4")))
 
-	obj := map[interface{}]interface{}{
+	obj := map[string]interface{}{
 		"foo": c1,
 		"baz": []interface{}{c2, c3, "c"},
 		"cats": map[interface{}]interface{}{
-			"qux": map[interface{}]interface{}{
+			"qux": map[string]interface{}{
 				"boo": 1,
 				"baa": c4,
 				"bee": 3,
 				"bii": 4,
-				"buu": map[interface{}]interface{}{
+				"buu": map[interface{}]string{
 					"coat": "rain",
 				},
 			},
