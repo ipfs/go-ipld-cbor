@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -64,16 +65,17 @@ var _ node.DecodeBlockFunc = DecodeBlock
 // Therefore, `bytes.Equal(b, Decode(b).RawData())` may not hold. If you already
 // have a CID for this data and want to ensure that it doesn't change, you
 // should use `DecodeBlock`.
+// mhType is multihash code to use for hashing, for example mh.SHA2_256
 //
 // Note: This function does not hold onto `b`. You may reuse it.
-func Decode(b []byte) (*Node, error) {
+func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
 	m, err := decodeCBOR(b)
 	if err != nil {
 		return nil, err
 	}
 	// We throw away `b` here to ensure that we canonicalize the encoded
 	// CBOR object.
-	return WrapObject(m)
+	return WrapObject(m, mhType, mhLen)
 }
 
 // DecodeInto decodes a serialized ipld cbor object into the given object.
@@ -121,12 +123,16 @@ type Node struct {
 	cid   *cid.Cid
 }
 
-func WrapObject(m interface{}) (*Node, error) {
+func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
 	data, err := DumpObject(m)
 	if err != nil {
 		return nil, err
 	}
-	hash, err := mh.Sum(data, mh.SHA2_256, -1)
+	if mhType == math.MaxUint64 {
+		mhType = mh.SHA2_256
+	}
+
+	hash, err := mh.Sum(data, mhType, mhLen)
 	if err != nil {
 		return nil, err
 	}
@@ -448,7 +454,7 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 	}
 }
 
-func FromJson(r io.Reader) (*Node, error) {
+func FromJson(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
 	var m interface{}
 	err := json.NewDecoder(r).Decode(&m)
 	if err != nil {
@@ -460,16 +466,7 @@ func FromJson(r io.Reader) (*Node, error) {
 		return nil, err
 	}
 
-	return WrapObject(obj)
-}
-
-func convertJsonToCbor(from map[string]interface{}) (*Node, error) {
-	out, err := convertMapSIToCbor(from)
-	if err != nil {
-		return nil, err
-	}
-
-	return WrapObject(out)
+	return WrapObject(obj, mhType, mhLen)
 }
 
 func convertMapSIToCbor(from map[string]interface{}) (map[interface{}]interface{}, error) {

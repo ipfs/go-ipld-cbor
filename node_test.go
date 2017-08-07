@@ -23,7 +23,7 @@ func assertCid(c *cid.Cid, exp string) error {
 }
 
 func TestNonObject(t *testing.T) {
-	nd, err := WrapObject("")
+	nd, err := WrapObject("", mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestNonObject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	back, err := Decode(nd.Copy().RawData())
+	back, err := Decode(nd.Copy().RawData(), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestNonObject(t *testing.T) {
 func TestDecodeInto(t *testing.T) {
 	nd, err := WrapObject(map[string]string{
 		"name": "foo",
-	})
+	}, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestDecodeInto(t *testing.T) {
 }
 
 func TestDecodeIntoNonObject(t *testing.T) {
-	nd, err := WrapObject("foobar")
+	nd, err := WrapObject("foobar", mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestBasicMarshal(t *testing.T) {
 		"bar":  c,
 	}
 
-	nd, err := WrapObject(obj)
+	nd, err := WrapObject(obj, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestBasicMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	back, err := Decode(nd.RawData())
+	back, err := Decode(nd.RawData(), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 		},
 	}
 
-	nd1, err := WrapObject(obj)
+	nd1, err := WrapObject(obj, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 		t.Fatal("didnt have enough links")
 	}
 
-	nd2, err := Decode(nd1.RawData())
+	nd2, err := Decode(nd1.RawData(), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func TestTree(t *testing.T) {
 		},
 	}
 
-	nd, err := WrapObject(obj)
+	nd, err := WrapObject(obj, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,12 +259,21 @@ func TestTree(t *testing.T) {
 func TestParsing(t *testing.T) {
 	b := []byte("\xd9\x01\x02\x58\x25\xa5\x03\x22\x12\x20\x65\x96\x50\xfc\x34\x43\xc9\x16\x42\x80\x48\xef\xc5\xba\x45\x58\xdc\x86\x35\x94\x98\x0a\x59\xf5\xcb\x3c\x4d\x84\x86\x7e\x6d\x31")
 
-	n, err := Decode(b)
+	n, err := Decode(b, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if err := assertCid(n.Cid(), "zdpuApUpLTkn3YYUeuMjWToYn8nt4KQY9kQqd9uL6vwHxXnQN"); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err = Decode(b, mh.SHA2_512, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := assertCid(n.Cid(), "zBwW8WMJocqnuegmghC9MyTw26Ywsdp8KTPUKkhNrnefa1X3RoNtvCCJ6kLbur2bS6TNriRb5SyFKLq9jpwtra9Fsxdd9"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -280,7 +289,7 @@ func TestFromJson(t *testing.T) {
                 {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"}
         ]
 }`
-	n, err := FromJson(bytes.NewReader([]byte(data)))
+	n, err := FromJson(bytes.NewReader([]byte(data)), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +314,7 @@ func TestResolvedValIsJsonable(t *testing.T) {
 			"baz": 2
 		}
 	}`
-	n, err := FromJson(strings.NewReader(data))
+	n, err := FromJson(strings.NewReader(data), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +351,7 @@ func TestExamples(t *testing.T) {
 		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw",
 	}
 	for originalJson, expcid := range examples {
-		n, err := FromJson(bytes.NewReader([]byte(originalJson)))
+		n, err := FromJson(bytes.NewReader([]byte(originalJson)), mh.SHA2_256, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -351,12 +360,12 @@ func TestExamples(t *testing.T) {
 		}
 
 		cbor := n.RawData()
-		node, err := Decode(cbor)
+		node, err := Decode(cbor, mh.SHA2_256, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		node, err = Decode(cbor)
+		node, err = Decode(cbor, mh.SHA2_256, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -374,7 +383,7 @@ func TestCanonicalize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nd1, err := Decode(b)
+	nd1, err := Decode(b, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +395,7 @@ func TestCanonicalize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nd2, err := Decode(nd1.RawData())
+	nd2, err := Decode(nd1.RawData(), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
