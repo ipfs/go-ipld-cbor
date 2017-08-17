@@ -254,6 +254,7 @@ func TestTree(t *testing.T) {
 	}
 
 	assertStringsEqual(t, toplevel, nd.Tree("", 1))
+	assertStringsEqual(t, []string{}, nd.Tree("", 0))
 }
 
 func TestParsing(t *testing.T) {
