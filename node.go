@@ -1,12 +1,12 @@
 package cbornode
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -14,12 +14,60 @@ import (
 	cid "github.com/ipfs/go-cid"
 	node "github.com/ipfs/go-ipld-format"
 	mh "github.com/multiformats/go-multihash"
-	cbor "github.com/whyrusleeping/cbor/go"
+
+	cbor "github.com/polydawn/refmt/cbor"
+	"github.com/polydawn/refmt/obj/atlas"
 )
 
+// CBORTagLink is the integer used to represent tags in CBOR.
 const CBORTagLink = 42
 
-// Decode a CBOR encoded Block into an IPLD Node.
+// Node represents an IPLD node.
+type Node struct {
+	obj   interface{}
+	tree  []string
+	links []*node.Link
+	raw   []byte
+	cid   *cid.Cid
+}
+
+// ErrNoSuchLink is returned when no link with the given name was found.
+var ErrNoSuchLink = errors.New("no such link found")
+
+var cborAtlas = atlas.MustBuild(
+	atlas.
+		BuildEntry(&cid.Cid{}).
+		UseTag(CBORTagLink).
+		Transform().
+		TransformMarshal(atlas.MakeMarshalTransformFunc(
+			func(link *cid.Cid) ([]byte, error) {
+				// TODO: manually doing binary multibase
+				return append([]byte{0}, link.Bytes()...), nil
+			})).
+		TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
+			func(x []byte) (*cid.Cid, error) {
+				if len(x) == 0 {
+					return nil, fmt.Errorf("link value was empty")
+				}
+
+				// TODO: manually doing multibase checking here since our deps don't
+				// support binary multibase yet
+				if x[0] != 0 {
+					return nil, fmt.Errorf("invalid multibase on IPLD link")
+				}
+
+				c, err := cid.Cast(x[1:])
+				if err != nil {
+					return nil, fmt.Errorf("invalid IPLD link: %s", err)
+				}
+
+				fmt.Printf("decoded cid: %s\n", c.String())
+				return c, nil
+			})).
+		Complete(),
+)
+
+// DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
 //
 // This method *does not* canonicalize and *will* preserve the CID. As a matter
 // of fact, it will assume that `block.Cid()` returns the correct CID and will
@@ -48,6 +96,7 @@ func decodeBlock(block blocks.Block) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &Node{
 		obj:   m,
 		tree:  tree,
@@ -59,7 +108,7 @@ func decodeBlock(block blocks.Block) (*Node, error) {
 
 var _ node.DecodeBlockFunc = DecodeBlock
 
-// Decode a CBOR object into an IPLD Node.
+// Decode decodes a CBOR object into an IPLD Node.
 //
 // If passed a non-canonical CBOR node, this function will canonicalize it.
 // Therefore, `bytes.Equal(b, Decode(b).RawData())` may not hold. If you already
@@ -78,7 +127,7 @@ func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
 	return WrapObject(m, mhType, mhLen)
 }
 
-// DecodeInto decodes a serialized ipld cbor object into the given object.
+// DecodeInto decodes a serialized IPLD cbor object into the given object.
 func DecodeInto(b []byte, v interface{}) error {
 	// The cbor library really doesnt make this sort of operation easy on us
 	m, err := decodeCBOR(b)
@@ -107,20 +156,9 @@ func decodeCBOR(b []byte) (m interface{}, err error) {
 			err = fmt.Errorf("cbor panic: %s", r)
 		}
 	}()
-	dec := cbor.NewDecoder(bytes.NewReader(b))
-	dec.TagDecoders[CBORTagLink] = new(IpldLinkDecoder)
-	err = dec.Decode(&m)
+
+	err = cbor.UnmarshalAtlased(b, &m, cborAtlas)
 	return
-}
-
-var ErrNoSuchLink = errors.New("no such link found")
-
-type Node struct {
-	obj   interface{}
-	tree  []string
-	links []*node.Link
-	raw   []byte
-	cid   *cid.Cid
 }
 
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
@@ -151,7 +189,16 @@ func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
 func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 	var cur interface{} = n.obj
 	for i, val := range path {
+		fmt.Printf("cur: %s - %v\n%s\n", reflect.TypeOf(cur), cur, val)
+
 		switch curv := cur.(type) {
+		case map[string]interface{}:
+			next, ok := curv[val]
+			if !ok {
+				return nil, nil, ErrNoSuchLink
+			}
+
+			cur = next
 		case map[interface{}]interface{}:
 			next, ok := curv[val]
 			if !ok {
@@ -211,6 +258,7 @@ func (n *Node) Copy() node.Node {
 
 func copyObj(i interface{}) interface{} {
 	switch i := i.(type) {
+	case map[string]interface{}:
 	case map[interface{}]interface{}:
 		out := make(map[interface{}]interface{})
 		for k, v := range i {
@@ -308,7 +356,9 @@ func (n *Node) Links() []*node.Link {
 
 func compLinks(obj interface{}) ([]*node.Link, error) {
 	var out []*node.Link
+	fmt.Printf("traversing: %v\n", obj)
 	err := traverse(obj, "", func(name string, val interface{}) error {
+		fmt.Printf("t: %v, %s\n", val, reflect.TypeOf(val))
 		if lnk, ok := val.(*cid.Cid); ok {
 			out = append(out, &node.Link{Cid: lnk})
 		}
@@ -317,6 +367,8 @@ func compLinks(obj interface{}) ([]*node.Link, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("found links: %v\n", out)
 	return out, nil
 }
 
@@ -324,8 +376,16 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 	if err := cb(cur, obj); err != nil {
 		return err
 	}
-
+	fmt.Printf("obj-type: %s\n", reflect.TypeOf(obj))
 	switch obj := obj.(type) {
+	case map[string]interface{}:
+		for k, v := range obj {
+			this := cur + "/" + k
+			if err := traverse(v, this, cb); err != nil {
+				return err
+			}
+		}
+		return nil
 	case map[interface{}]interface{}:
 		for k, v := range obj {
 			ks, ok := k.(string)
@@ -356,15 +416,7 @@ func (n *Node) RawData() []byte {
 }
 
 func DumpObject(obj interface{}) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	enc := cbor.NewEncoder(buf)
-	enc.SetFilter(EncoderFilter)
-	err := enc.Encode(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return cbor.MarshalAtlased(obj, cborAtlas)
 }
 
 func (n *Node) Cid() *cid.Cid {
@@ -513,53 +565,4 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 	}
 }
 
-func EncoderFilter(i interface{}) interface{} {
-	link, ok := i.(*cid.Cid)
-	if !ok {
-		return i
-	}
-
-	return &cbor.CBORTag{
-		Tag:           CBORTagLink,
-		WrappedObject: append([]byte{0}, link.Bytes()...), // TODO: manually doing binary multibase
-	}
-}
-
-type IpldLinkDecoder struct{}
-
-func (d *IpldLinkDecoder) DecodeTarget() interface{} {
-	return &[]byte{}
-}
-
-func (d *IpldLinkDecoder) GetTag() uint64 {
-	return CBORTagLink
-}
-
-func (d *IpldLinkDecoder) PostDecode(i interface{}) (interface{}, error) {
-	ibarr, ok := i.(*[]byte)
-	if !ok {
-		return nil, fmt.Errorf("expected a byte array in IpldLink PostDecode")
-	}
-
-	barr := *ibarr
-
-	if len(barr) == 0 {
-		return nil, fmt.Errorf("link value was empty")
-	}
-
-	// TODO: manually doing multibase checking here since our deps don't
-	// support binary multibase yet
-	if barr[0] != 0 {
-		return nil, fmt.Errorf("invalid multibase on ipld link")
-	}
-
-	c, err := cid.Cast(barr[1:])
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-var _ cbor.TagDecoder = (*IpldLinkDecoder)(nil)
 var _ node.Node = (*Node)(nil)
