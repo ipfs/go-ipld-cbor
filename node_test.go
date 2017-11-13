@@ -121,7 +121,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 	c2 := cid.NewCidV0(u.Hash([]byte("something2")))
 	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
 
-	obj := map[interface{}]interface{}{
+	obj := map[string]interface{}{
 		"foo": "bar",
 		"baz": []interface{}{
 			c1,
@@ -199,13 +199,13 @@ func TestTree(t *testing.T) {
 	obj := map[string]interface{}{
 		"foo": c1,
 		"baz": []interface{}{c2, c3, "c"},
-		"cats": map[interface{}]interface{}{
+		"cats": map[string]interface{}{
 			"qux": map[string]interface{}{
 				"boo": 1,
 				"baa": c4,
 				"bee": 3,
 				"bii": 4,
-				"buu": map[interface{}]string{
+				"buu": map[string]string{
 					"coat": "rain",
 				},
 			},
@@ -302,7 +302,7 @@ func TestFromJson(t *testing.T) {
                 {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"}
         ]
 }`
-	n, err := FromJson(bytes.NewReader([]byte(data)), mh.SHA2_256, -1)
+	n, err := FromJSON(bytes.NewReader([]byte(data)), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestResolvedValIsJsonable(t *testing.T) {
 			"baz": 2
 		}
 	}`
-	n, err := FromJson(strings.NewReader(data), mh.SHA2_256, -1)
+	n, err := FromJSON(strings.NewReader(data), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,38 +354,41 @@ func TestExamples(t *testing.T) {
 	examples := map[string]string{
 		"[null]":                        "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj",
 		"[]":                            "zdpuAtQy7GSHNcZxdBfmtowdL1d2WAFjJBwb6WAEfFJ6T4Gbi",
-		"{}":                            "zdpuAyTBnYSugBZhqJuLsNpzjmAjSmxDqBbtAqXMtsvxiN2v3",
+		"{}":                            "zdpuAyTBnYSugBZhqJuLsNpzjmAjSmxDqBbtAqXMtsvxiN2v3", // pass
 		"null":                          "zdpuAxKCBsAKQpEw456S49oVDkWJ9PZa44KGRfVBWHiXN3UH8",
-		"1":                             "zdpuB2pwLskBDu5PZE2sepLyc3SRFPFgVXmnpzXVtWgam25kY",
-		"[1]":                           "zdpuB31oq9uvbqcSTySbWhD9NMBJDjsUXKtyQNhFAsYNbYH95",
-		"true":                          "zdpuAo6JPKbsmgmtujhh7mGywsAwPRmtyAYZBPKYYRjyLujD1",
-		`{"a":"IPFS"}`:                  "zdpuB3AZ71ccMjBB9atM97R4wSaCYjGyztnHnjUu93t4B2XqY",
+		"1":                             "zdpuB2pwLskBDu5PZE2sepLyc3SRFPFgVXmnpzXVtWgam25kY", // pass
+		"[1]":                           "zdpuB31oq9uvbqcSTySbWhD9NMBJDjsUXKtyQNhFAsYNbYH95", // pass
+		"true":                          "zdpuAo6JPKbsmgmtujhh7mGywsAwPRmtyAYZBPKYYRjyLujD1", // pass
+		`{"a":"IPFS"}`:                  "zdpuB3AZ71ccMjBB9atM97R4wSaCYjGyztnHnjUu93t4B2XqY", // pass
 		`{"a":"IPFS","b":null,"c":[1]}`: "zdpuAyoYWNEe6xcGhkYk2SUfc7Rtbk4GkmZCrNAAnpft4Mmj5",
-		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw",
+		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw", // pass
 	}
-	for originalJson, expcid := range examples {
-		n, err := FromJson(bytes.NewReader([]byte(originalJson)), mh.SHA2_256, -1)
+	for originalJSON, expcid := range examples {
+		n, err := FromJSON(bytes.NewReader([]byte(originalJSON)), mh.SHA2_256, -1)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("for object %s: %s", originalJSON, err)
 		}
 		if err := assertCid(n.Cid(), expcid); err != nil {
-			t.Fatalf("for object %s: %s", originalJson, err)
+			t.Fatalf("for object %s: %s", originalJSON, err)
 		}
 
 		cbor := n.RawData()
+		_, err = Decode(cbor, mh.SHA2_256, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		node, err := Decode(cbor, mh.SHA2_256, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		node, err = Decode(cbor, mh.SHA2_256, -1)
+		jsonBytes, err := node.MarshalJSON()
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		jsonBytes, err := node.MarshalJSON()
 		json := string(jsonBytes)
-		if json != originalJson {
+		if json != originalJSON {
 			t.Fatal("marshaled to incorrect JSON: " + json)
 		}
 	}

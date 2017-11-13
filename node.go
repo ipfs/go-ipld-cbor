@@ -1,6 +1,7 @@
 package cbornode
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -124,7 +125,7 @@ func DecodeInto(b []byte, v interface{}) error {
 		return err
 	}
 
-	jsonable, err := convertToJsonIsh(m)
+	jsonable, err := convertToJSONIsh(m)
 	if err != nil {
 		return err
 	}
@@ -142,15 +143,21 @@ func DecodeInto(b []byte, v interface{}) error {
 func decodeCBOR(b []byte) (m interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("cbor panic: %s", r)
+			err = fmt.Errorf("failed to unmarshal - cbor panic: %s", r)
 		}
 	}()
 
 	err = cbor.UnmarshalAtlased(b, &m, cborAtlas)
+	if err != nil {
+		fmt.Printf("bytes: %s\n", hex.EncodeToString(b))
+		err = fmt.Errorf("failed to unmarshal: %s", err)
+	}
 	return
 }
 
+// WrapObject converts an arbitrary object into a Node.
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
+	fmt.Printf("wrapping object: %v\n", m)
 	data, err := DumpObject(m)
 	if err != nil {
 		return nil, err
@@ -175,6 +182,8 @@ func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
 	return decodeBlock(block)
 }
 
+// Resolve resolves a given path, and returns the object found at the end, as well
+// as the possible tail of the path that was not resolved.
 func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 	var cur interface{} = n.obj
 	for i, val := range path {
@@ -218,7 +227,7 @@ func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 		return &node.Link{Cid: lnk}, nil, nil
 	}
 
-	jsonish, err := convertToJsonIsh(cur)
+	jsonish, err := convertToJSONIsh(cur)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -226,6 +235,7 @@ func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 	return jsonish, nil, nil
 }
 
+// Copy creates a copy of the Node.
 func (n *Node) Copy() node.Node {
 	links := make([]*node.Link, len(n.links))
 	copy(links, n.links)
@@ -272,6 +282,8 @@ func copyObj(i interface{}) interface{} {
 	}
 }
 
+// ResolveLink resolves a path and returns the raw Link at the end, as well as
+// the possible tail of the path that was not resolved.
 func (n *Node) ResolveLink(path []string) (*node.Link, []string, error) {
 	obj, rest, err := n.Resolve(path)
 	if err != nil {
@@ -287,6 +299,7 @@ func (n *Node) ResolveLink(path []string) (*node.Link, []string, error) {
 	return lnk, rest, nil
 }
 
+// Tree returns a flattend array of paths at the given path for the given depth.
 func (n *Node) Tree(path string, depth int) []string {
 	if path == "" && depth == -1 {
 		return n.tree
@@ -331,6 +344,7 @@ func compTree(obj interface{}) ([]string, error) {
 	return out, nil
 }
 
+// Links lists all known links of the Node.
 func (n *Node) Links() []*node.Link {
 	return n.links
 }
@@ -392,25 +406,17 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 	}
 }
 
+// RawData returns the raw bytes that represent the Node as serialized CBOR.
 func (n *Node) RawData() []byte {
 	return n.raw
 }
 
-func DumpObject(obj interface{}) (out []byte, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cbor panic: %s", r)
-		}
-	}()
-
-	out, err = cbor.MarshalAtlased(obj, cborAtlas)
-	return
-}
-
+// Cid returns the canonical Cid of the NOde.
 func (n *Node) Cid() cid.Cid {
 	return n.cid
 }
 
+// Loggable returns a loggable representation of the Node.
 func (n *Node) Loggable() map[string]interface{} {
 	return map[string]interface{}{
 		"node_type": "cbor",
@@ -418,25 +424,46 @@ func (n *Node) Loggable() map[string]interface{} {
 	}
 }
 
+// Size returns the size of the binary representation of the Node.
 func (n *Node) Size() (uint64, error) {
 	return uint64(len(n.RawData())), nil
 }
 
+// Stat returns stats about the Node.
+// TODO: implement?
 func (n *Node) Stat() (*node.NodeStat, error) {
 	return &node.NodeStat{}, nil
 }
 
+// String returns the string representation of the CID of the Node.
 func (n *Node) String() string {
 	return n.Cid().String()
 }
 
+// MarshalJSON converts the Node into its JSON representation.
 func (n *Node) MarshalJSON() ([]byte, error) {
-	out, err := convertToJsonIsh(n.obj)
+	out, err := convertToJSONIsh(n.obj)
 	if err != nil {
 		return nil, err
 	}
 
 	return json.Marshal(out)
+}
+
+// DumpObject marshals any object into its CBOR serialized byte representation
+// TODO: rename
+func DumpObject(obj interface{}) (out []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to marshal - cbor panic: %s", r)
+		}
+	}()
+
+	out, err = cbor.MarshalAtlased(obj, cborAtlas)
+	if err != nil {
+		err = fmt.Errorf("failed to marshal: %s", err)
+	}
+	return
 }
 
 func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
@@ -460,7 +487,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 			return nil, fmt.Errorf("map keys must be strings")
 		}
 
-		obj, err := convertToJsonIsh(v)
+		obj, err := convertToJSONIsh(v)
 		if err != nil {
 			return nil, err
 		}
@@ -471,7 +498,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 	return out, nil
 }
 
-func convertToJsonIsh(v interface{}) (interface{}, error) {
+func convertToJSONIsh(v interface{}) (interface{}, error) {
 	switch v := v.(type) {
 	case map[interface{}]interface{}:
 		return toSaneMap(v)
@@ -481,7 +508,7 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 			return []interface{}{}, nil
 		}
 		for _, i := range v {
-			obj, err := convertToJsonIsh(i)
+			obj, err := convertToJSONIsh(i)
 			if err != nil {
 				return nil, err
 			}
@@ -494,7 +521,8 @@ func convertToJsonIsh(v interface{}) (interface{}, error) {
 	}
 }
 
-func FromJson(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
+// FromJSON converts incoming JSON into a Node.
+func FromJSON(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
 	var m interface{}
 	err := json.NewDecoder(r).Decode(&m)
 	if err != nil {
@@ -506,20 +534,8 @@ func FromJson(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
 		return nil, err
 	}
 
+	fmt.Printf("fromjson: %s\n", reflect.TypeOf(obj))
 	return WrapObject(obj, mhType, mhLen)
-}
-
-func convertMapSIToCbor(from map[string]interface{}) (map[interface{}]interface{}, error) {
-	to := make(map[interface{}]interface{})
-	for k, v := range from {
-		out, err := convertToCborIshObj(v)
-		if err != nil {
-			return nil, err
-		}
-		to[k] = out
-	}
-
-	return to, nil
 }
 
 func convertToCborIshObj(i interface{}) (interface{}, error) {
@@ -535,7 +551,7 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 			return cid.Decode(vstr)
 		}
 
-		return convertMapSIToCbor(v)
+		return v, nil
 	case []interface{}:
 		var out []interface{}
 		for _, o := range v {
