@@ -259,6 +259,11 @@ func (n *Node) Copy() node.Node {
 func copyObj(i interface{}) interface{} {
 	switch i := i.(type) {
 	case map[string]interface{}:
+		out := make(map[string]interface{})
+		for k, v := range i {
+			out[k] = copyObj(v)
+		}
+		return out
 	case map[interface{}]interface{}:
 		out := make(map[interface{}]interface{})
 		for k, v := range i {
