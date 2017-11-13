@@ -354,43 +354,87 @@ func TestExamples(t *testing.T) {
 	examples := map[string]string{
 		"[null]":                        "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj",
 		"[]":                            "zdpuAtQy7GSHNcZxdBfmtowdL1d2WAFjJBwb6WAEfFJ6T4Gbi",
-		"{}":                            "zdpuAyTBnYSugBZhqJuLsNpzjmAjSmxDqBbtAqXMtsvxiN2v3", // pass
+		"{}":                            "zdpuAyTBnYSugBZhqJuLsNpzjmAjSmxDqBbtAqXMtsvxiN2v3",
 		"null":                          "zdpuAxKCBsAKQpEw456S49oVDkWJ9PZa44KGRfVBWHiXN3UH8",
-		"1":                             "zdpuB2pwLskBDu5PZE2sepLyc3SRFPFgVXmnpzXVtWgam25kY", // pass
-		"[1]":                           "zdpuB31oq9uvbqcSTySbWhD9NMBJDjsUXKtyQNhFAsYNbYH95", // pass
-		"true":                          "zdpuAo6JPKbsmgmtujhh7mGywsAwPRmtyAYZBPKYYRjyLujD1", // pass
-		`{"a":"IPFS"}`:                  "zdpuB3AZ71ccMjBB9atM97R4wSaCYjGyztnHnjUu93t4B2XqY", // pass
+		"1":                             "zdpuB2pwLskBDu5PZE2sepLyc3SRFPFgVXmnpzXVtWgam25kY",
+		"[1]":                           "zdpuB31oq9uvbqcSTySbWhD9NMBJDjsUXKtyQNhFAsYNbYH95",
+		"true":                          "zdpuAo6JPKbsmgmtujhh7mGywsAwPRmtyAYZBPKYYRjyLujD1",
+		`{"a":"IPFS"}`:                  "zdpuB3AZ71ccMjBB9atM97R4wSaCYjGyztnHnjUu93t4B2XqY",
 		`{"a":"IPFS","b":null,"c":[1]}`: "zdpuAyoYWNEe6xcGhkYk2SUfc7Rtbk4GkmZCrNAAnpft4Mmj5",
-		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw", // pass
+		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw",
 	}
 	for originalJSON, expcid := range examples {
-		n, err := FromJSON(bytes.NewReader([]byte(originalJSON)), mh.SHA2_256, -1)
-		if err != nil {
-			t.Fatalf("for object %s: %s", originalJSON, err)
-		}
-		if err := assertCid(n.Cid(), expcid); err != nil {
-			t.Fatalf("for object %s: %s", originalJSON, err)
-		}
+		t.Run(originalJSON, func(t *testing.T) {
+			check := func(err error) {
+				if err != nil {
+					t.Fatalf("for object %s: %s", originalJSON, err)
+				}
+			}
 
-		cbor := n.RawData()
-		_, err = Decode(cbor, mh.SHA2_256, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
+			n, err := FromJSON(bytes.NewReader([]byte(originalJSON)), mh.SHA2_256, -1)
+			check(err)
+			check(assertCid(n.Cid(), expcid))
 
-		node, err := Decode(cbor, mh.SHA2_256, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
+			cbor := n.RawData()
+			_, err = Decode(cbor, mh.SHA2_256, -1)
+			check(err)
 
-		jsonBytes, err := node.MarshalJSON()
-		if err != nil {
-			t.Fatal(err)
-		}
-		json := string(jsonBytes)
-		if json != originalJSON {
-			t.Fatal("marshaled to incorrect JSON: " + json)
-		}
+			node, err := Decode(cbor, mh.SHA2_256, -1)
+			check(err)
+
+			jsonBytes, err := node.MarshalJSON()
+			check(err)
+
+			json := string(jsonBytes)
+			if json != originalJSON {
+				t.Fatalf("marshaled to incorrect JSON: %s != %s", originalJSON, json)
+			}
+		})
+	}
+}
+
+func TestObjects(t *testing.T) {
+	raw, err := ioutil.ReadFile("test_objects/expected.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cases map[string]map[string]string
+
+	err = json.Unmarshal(raw, &cases)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, c := range cases {
+		t.Run(k, func(t *testing.T) {
+			in, err := ioutil.ReadFile(fmt.Sprintf("test_objects/%s.json", k))
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected, err := ioutil.ReadFile(fmt.Sprintf("test_objects/%s.cbor", k))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			nd, err := FromJSON(bytes.NewReader(in), mh.SHA2_256, -1)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cExp, err := cid.Decode(c["/"])
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !nd.Cid().Equals(cExp) {
+				t.Fatalf("cid missmatch: %s != %s", nd.String(), cExp.String())
+			}
+
+			if !bytes.Equal(nd.RawData(), expected) {
+				t.Fatal("bytes do not match")
+			}
+		})
 	}
 }
 
