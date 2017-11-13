@@ -36,32 +36,21 @@ var ErrNoSuchLink = errors.New("no such link found")
 
 var cborAtlas = atlas.MustBuild(
 	atlas.
-		BuildEntry(&cid.Cid{}).
+		BuildEntry(cid.Cid{}).
 		UseTag(CBORTagLink).
 		Transform().
 		TransformMarshal(atlas.MakeMarshalTransformFunc(
 			func(link cid.Cid) ([]byte, error) {
 				// TODO: manually doing binary multibase
-				return append([]byte{0}, link.Bytes()...), nil
+				return castCidToBytes(link), nil
 			})).
 		TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
 			func(x []byte) (cid.Cid, error) {
-				if len(x) == 0 {
-					return cid.Cid{}, fmt.Errorf("link value was empty")
-				}
-
-				// TODO: manually doing multibase checking here since our deps don't
-				// support binary multibase yet
-				if x[0] != 0 {
-					return cid.Cid{}, fmt.Errorf("invalid multibase on IPLD link")
-				}
-
-				c, err := cid.Cast(x[1:])
+				c, err := castBytesToCid(x)
 				if err != nil {
-					return cid.Cid{}, fmt.Errorf("invalid IPLD link: %s", err)
+					return cid.Cid{}, err
 				}
 
-				fmt.Printf("decoded cid: %s\n", c.String())
 				return c, nil
 			})).
 		Complete(),
@@ -290,25 +279,12 @@ func (n *Node) ResolveLink(path []string) (*node.Link, []string, error) {
 	}
 
 	lnk, ok := obj.(*node.Link)
-	if ok {
-		return lnk, rest, nil
-	}
-
-	return nil, rest, fmt.Errorf("found non-link at given path")
-}
-
-func linkCast(lnk interface{}) (*node.Link, error) {
-	lnkb, ok := lnk.([]byte)
 	if !ok {
-		return nil, errors.New("incorrectly formatted link")
+		fmt.Printf("lnk %v - %s\n", obj, reflect.TypeOf(obj))
+		return nil, rest, fmt.Errorf("found non-link at given path")
 	}
 
-	c, err := cid.Cast(lnkb)
-	if err != nil {
-		return nil, err
-	}
-
-	return &node.Link{Cid: c}, nil
+	return lnk, rest, nil
 }
 
 func (n *Node) Tree(path string, depth int) []string {
@@ -420,8 +396,15 @@ func (n *Node) RawData() []byte {
 	return n.raw
 }
 
-func DumpObject(obj interface{}) ([]byte, error) {
-	return cbor.MarshalAtlased(obj, cborAtlas)
+func DumpObject(obj interface{}) (out []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("cbor panic: %s", r)
+		}
+	}()
+
+	out, err = cbor.MarshalAtlased(obj, cborAtlas)
+	return
 }
 
 func (n *Node) Cid() cid.Cid {
@@ -568,6 +551,30 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 	default:
 		return v, nil
 	}
+}
+
+func castBytesToCid(x []byte) (cid.Cid, error) {
+	if len(x) == 0 {
+		return cid.Cid{}, fmt.Errorf("link value was empty")
+	}
+
+	// TODO: manually doing multibase checking here since our deps don't
+	// support binary multibase yet
+	if x[0] != 0 {
+		return cid.Cid{}, fmt.Errorf("invalid multibase on IPLD link")
+	}
+
+	c, err := cid.Cast(x[1:])
+	if err != nil {
+		return cid.Cid{}, fmt.Errorf("invalid IPLD link: %s", err)
+	}
+
+	fmt.Printf("decoded cid: %s\n", c.String())
+	return c, nil
+}
+
+func castCidToBytes(link cid.Cid) []byte {
+	return append([]byte{0}, link.Bytes()...)
 }
 
 var _ node.Node = (*Node)(nil)
