@@ -112,6 +112,7 @@ func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// We throw away `b` here to ensure that we canonicalize the encoded
 	// CBOR object.
 	return WrapObject(m, mhType, mhLen)
@@ -541,13 +542,17 @@ func FromJSON(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
 		return nil, err
 	}
 
-	fmt.Printf("fromjson: %s\n", reflect.TypeOf(obj))
+	fmt.Printf("fromjson: %s - %s\n", reflect.TypeOf(obj), obj)
 	return WrapObject(obj, mhType, mhLen)
 }
 
 func convertToCborIshObj(i interface{}) (interface{}, error) {
 	switch v := i.(type) {
 	case map[string]interface{}:
+		if len(v) == 0 {
+			return v, nil
+		}
+
 		if lnk, ok := v["/"]; ok && len(v) == 1 {
 			// special case for links
 			vstr, ok := lnk.(string)
@@ -560,6 +565,10 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 
 		return v, nil
 	case []interface{}:
+		if len(v) == 0 {
+			return v, nil
+		}
+
 		var out []interface{}
 		for _, o := range v {
 			obj, err := convertToCborIshObj(o)
