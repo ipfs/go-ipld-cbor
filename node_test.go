@@ -53,6 +53,7 @@ func TestDecodeInto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(m) != 1 || m["name"] != "foo" {
 		t.Fatal("failed to decode object")
 	}
@@ -122,7 +123,8 @@ func TestMarshalRoundtrip(t *testing.T) {
 	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
 
 	obj := map[string]interface{}{
-		"foo": "bar",
+		"foo":   "bar",
+		"hello": c1,
 		"baz": []interface{}{
 			c1,
 			c2,
@@ -138,7 +140,16 @@ func TestMarshalRoundtrip(t *testing.T) {
 	}
 
 	if err := assertCid(nd1.Cid(), "zdpuAwc5bPhfHGdA4rs3qKzr3QB3Fjp3D16C8BRRyWzTPpY9R"); err != nil {
-		t.Fatal(err)
+
+		orig, err1 := json.Marshal(obj)
+		if err1 != nil {
+			t.Fatal(err1)
+		}
+		js, err1 := nd1.MarshalJSON()
+		if err1 != nil {
+			t.Fatal(err1)
+		}
+		t.Fatalf("%s != %s\n%s", orig, js, err)
 	}
 
 	if len(nd1.Links()) != 3 {
@@ -427,12 +438,12 @@ func TestObjects(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if !nd.Cid().Equals(cExp) {
-				t.Fatalf("cid missmatch: %s != %s", nd.String(), cExp.String())
+			if !bytes.Equal(nd.RawData(), expected) {
+				t.Fatalf("bytes do not match: %x != %x", nd.RawData(), expected)
 			}
 
-			if !bytes.Equal(nd.RawData(), expected) {
-				t.Fatal("bytes do not match")
+			if !nd.Cid().Equals(cExp) {
+				t.Fatalf("cid missmatch: %s != %s", nd.String(), cExp.String())
 			}
 		})
 	}
