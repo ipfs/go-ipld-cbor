@@ -1,13 +1,12 @@
 package cbornode
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
-	"reflect"
+	// "reflect"
 	"strconv"
 	"strings"
 
@@ -32,28 +31,33 @@ type Node struct {
 	cid   *cid.Cid
 }
 
-// ErrNoSuchLink is returned when no link with the given name was found.
-var ErrNoSuchLink = errors.New("no such link found")
+// Compile time check to make sure Node implements the node.Node interface
+var _ node.Node = (*Node)(nil)
 
+var (
+	// ErrNoSuchLink is returned when no link with the given name was found.
+	ErrNoSuchLink       = errors.New("no such link found")
+	ErrNonLink          = errors.New("non-link found at given path")
+	ErrInvalidLink      = errors.New("link value should have been bytes")
+	ErrInvalidKeys      = errors.New("map keys must be strings")
+	ErrArrayOutOfRange  = errors.New("array index out of range")
+	ErrNoLinks          = errors.New("tried to resolve through object that had no links")
+	ErrEmptyLink        = errors.New("link value was empty")
+	ErrInvalidMultibase = errors.New("invalid multibase on IPLD link")
+)
+
+// This atlas describes the CBOR Tag (42) for IPLD links, such that refmt can marshal and unmarshal them
 var cborAtlas = atlas.MustBuild(
 	atlas.
 		BuildEntry(cid.Cid{}).
 		UseTag(CBORTagLink).
 		Transform().
 		TransformMarshal(atlas.MakeMarshalTransformFunc(
-			func(link cid.Cid) ([]byte, error) {
-				// TODO: manually doing binary multibase
-				return castCidToBytes(&link), nil
-			})).
+			castCidToBytes,
+		)).
 		TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
-			func(x []byte) (cid.Cid, error) {
-				c, err := castBytesToCid(x)
-				if err != nil {
-					return cid.Cid{}, err
-				}
-
-				return *c, nil
-			})).
+			castBytesToCid,
+		)).
 		Complete(),
 )
 
@@ -119,46 +123,31 @@ func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
 }
 
 // DecodeInto decodes a serialized IPLD cbor object into the given object.
-func DecodeInto(b []byte, v interface{}) error {
-	// The cbor library really doesnt make this sort of operation easy on us
-	m, err := decodeCBOR(b)
-	if err != nil {
-		return err
-	}
-
-	jsonable, err := convertToJSONIsh(m)
-	if err != nil {
-		return err
-	}
-
-	jsonb, err := json.Marshal(jsonable)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(jsonb, v)
-
-}
-
-// Decodes a cbor node into an object.
-func decodeCBOR(b []byte) (m interface{}, err error) {
+func DecodeInto(b []byte, v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("failed to unmarshal - cbor panic: %s", r)
 		}
 	}()
 
-	err = cbor.UnmarshalAtlased(b, &m, cborAtlas)
-	if err != nil {
-		fmt.Printf("bytes: %s\n", hex.EncodeToString(b))
-		err = fmt.Errorf("failed to unmarshal: %s", err)
-	}
+	err = cbor.UnmarshalAtlased(b, v, cborAtlas)
 	return
+}
+
+// Decodes a cbor node into an object.
+func decodeCBOR(b []byte) (interface{}, error) {
+	var m interface{}
+
+	if err := DecodeInto(b, &m); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 // WrapObject converts an arbitrary object into a Node.
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
-	fmt.Printf("wrapping object: %v\n", m)
+	// fmt.Printf("wrapping object: %v\n", m)
 	data, err := DumpObject(m)
 	if err != nil {
 		return nil, err
@@ -188,8 +177,6 @@ func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
 func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 	var cur interface{} = n.obj
 	for i, val := range path {
-		fmt.Printf("cur: %s - %v\n%s\n", reflect.TypeOf(cur), cur, val)
-
 		switch curv := cur.(type) {
 		case map[string]interface{}:
 			next, ok := curv[val]
@@ -212,7 +199,7 @@ func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 			}
 
 			if n < 0 || n >= len(curv) {
-				return nil, nil, fmt.Errorf("array index out of range")
+				return nil, nil, ErrArrayOutOfRange
 			}
 
 			cur = curv[n]
@@ -221,7 +208,7 @@ func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 		case cid.Cid:
 			return &node.Link{Cid: &curv}, path[i:], nil
 		default:
-			return nil, nil, errors.New("tried to resolve through object that had no links")
+			return nil, nil, ErrNoLinks
 		}
 	}
 
@@ -300,8 +287,8 @@ func (n *Node) ResolveLink(path []string) (*node.Link, []string, error) {
 
 	lnk, ok := obj.(*node.Link)
 	if !ok {
-		fmt.Printf("lnk %v - %s\n", obj, reflect.TypeOf(obj))
-		return nil, rest, fmt.Errorf("found non-link at given path")
+		// fmt.Printf("lnk %v - %s\n", obj, reflect.TypeOf(obj))
+		return nil, rest, ErrNonLink
 	}
 
 	return lnk, rest, nil
@@ -359,9 +346,9 @@ func (n *Node) Links() []*node.Link {
 
 func compLinks(obj interface{}) ([]*node.Link, error) {
 	var out []*node.Link
-	fmt.Printf("traversing: %v\n", obj)
+	// fmt.Printf("traversing: %v\n", obj)
 	err := traverse(obj, "", func(name string, val interface{}) error {
-		fmt.Printf("t: %v, %s\n", val, reflect.TypeOf(val))
+		// fmt.Printf("t: %v, %s\n", val, reflect.TypeOf(val))
 		if lnk, ok := val.(cid.Cid); ok {
 			out = append(out, &node.Link{Cid: &lnk})
 		}
@@ -371,7 +358,7 @@ func compLinks(obj interface{}) ([]*node.Link, error) {
 		return nil, err
 	}
 
-	fmt.Printf("found links: %v\n", out)
+	// fmt.Printf("found links: %v\n", out)
 	return out, nil
 }
 
@@ -379,7 +366,7 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 	if err := cb(cur, obj); err != nil {
 		return err
 	}
-	fmt.Printf("obj-type: %s\n", reflect.TypeOf(obj))
+	// fmt.Printf("obj-type: %s\n", reflect.TypeOf(obj))
 	switch obj := obj.(type) {
 	case map[string]interface{}:
 		for k, v := range obj {
@@ -471,6 +458,8 @@ func DumpObject(obj interface{}) (out []byte, err error) {
 	if err != nil {
 		err = fmt.Errorf("failed to marshal: %s", err)
 	}
+
+	fmt.Printf("out: %x\n", out)
 	return
 }
 
@@ -478,7 +467,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 	if lnk, ok := n["/"]; ok && len(n) == 1 {
 		lnkb, ok := lnk.([]byte)
 		if !ok {
-			return nil, fmt.Errorf("link value should have been bytes")
+			return nil, ErrInvalidLink
 		}
 
 		c, err := cid.Cast(lnkb)
@@ -492,7 +481,7 @@ func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
 	for k, v := range n {
 		ks, ok := k.(string)
 		if !ok {
-			return nil, fmt.Errorf("map keys must be strings")
+			return nil, ErrInvalidKeys
 		}
 
 		obj, err := convertToJSONIsh(v)
@@ -542,14 +531,14 @@ func FromJSON(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
 		return nil, err
 	}
 
-	fmt.Printf("fromjson: %s - %s\n", reflect.TypeOf(obj), obj)
+	// fmt.Printf("fromjson: %s - %s\n", reflect.TypeOf(obj), obj)
 	return WrapObject(obj, mhType, mhLen)
 }
 
 func convertToCborIshObj(i interface{}) (interface{}, error) {
 	switch v := i.(type) {
 	case map[string]interface{}:
-		if len(v) == 0 {
+		if len(v) == 0 && v != nil {
 			return v, nil
 		}
 
@@ -565,7 +554,7 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 
 		return v, nil
 	case []interface{}:
-		if len(v) == 0 {
+		if len(v) == 0 && v != nil {
 			return v, nil
 		}
 
@@ -585,28 +574,25 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 	}
 }
 
-func castBytesToCid(x []byte) (*cid.Cid, error) {
+func castBytesToCid(x []byte) (cid.Cid, error) {
 	if len(x) == 0 {
-		return nil, fmt.Errorf("link value was empty")
+		return cid.Cid{}, ErrEmptyLink
 	}
 
 	// TODO: manually doing multibase checking here since our deps don't
 	// support binary multibase yet
 	if x[0] != 0 {
-		return nil, fmt.Errorf("invalid multibase on IPLD link")
+		return cid.Cid{}, ErrInvalidMultibase
 	}
 
 	c, err := cid.Cast(x[1:])
 	if err != nil {
-		return nil, fmt.Errorf("invalid IPLD link: %s", err)
+		return cid.Cid{}, fmt.Errorf("invalid IPLD link: %s", err)
 	}
 
-	fmt.Printf("decoded cid: %s\n", c.String())
-	return c, nil
+	return *c, nil
 }
 
-func castCidToBytes(link *cid.Cid) []byte {
-	return append([]byte{0}, link.Bytes()...)
+func castCidToBytes(link cid.Cid) ([]byte, error) {
+	return append([]byte{0}, link.Bytes()...), nil
 }
-
-var _ node.Node = (*Node)(nil)
