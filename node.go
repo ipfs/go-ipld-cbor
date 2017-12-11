@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	// "reflect"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -47,19 +47,42 @@ var (
 )
 
 // This atlas describes the CBOR Tag (42) for IPLD links, such that refmt can marshal and unmarshal them
-var cborAtlas = atlas.MustBuild(
-	atlas.
-		BuildEntry(cid.Cid{}).
-		UseTag(CBORTagLink).
-		Transform().
-		TransformMarshal(atlas.MakeMarshalTransformFunc(
-			castCidToBytes,
-		)).
-		TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
-			castBytesToCid,
-		)).
-		Complete(),
-)
+var cidAtlasEntry = atlas.BuildEntry(cid.Cid{}).
+	UseTag(CBORTagLink).
+	Transform().
+	TransformMarshal(atlas.MakeMarshalTransformFunc(
+		castCidToBytes,
+	)).
+	TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
+		castBytesToCid,
+	)).
+	Complete()
+
+var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
+	TransformMarshal(atlas.MakeMarshalTransformFunc(
+		func(i big.Int) ([]byte, error) {
+			return i.Bytes(), nil
+		})).
+	TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
+		func(x []byte) (big.Int, error) {
+			return *big.NewInt(0).SetBytes(x), nil
+		})).
+	Complete()
+
+var cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry)
+
+var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
+
+func RegisterCborType(i interface{}) {
+	var entry *atlas.AtlasEntry
+	if ae, ok := i.(*atlas.AtlasEntry); ok {
+		entry = ae
+	} else {
+		entry = atlas.BuildEntry(i).StructMap().Autogenerate().Complete()
+	}
+	atlasEntries = append(atlasEntries, entry)
+	cborAtlas = atlas.MustBuild(atlasEntries...)
+}
 
 // DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
 //
@@ -78,10 +101,11 @@ func DecodeBlock(block blocks.Block) (node.Node, error) {
 }
 
 func decodeBlock(block blocks.Block) (*Node, error) {
-	m, err := decodeCBOR(block.RawData())
-	if err != nil {
+	var m interface{}
+	if err := DecodeInto(block.RawData(), &m); err != nil {
 		return nil, err
 	}
+
 	tree, err := compTree(m)
 	if err != nil {
 		return nil, err
@@ -112,8 +136,8 @@ var _ node.DecodeBlockFunc = DecodeBlock
 //
 // Note: This function does not hold onto `b`. You may reuse it.
 func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
-	m, err := decodeCBOR(b)
-	if err != nil {
+	var m interface{}
+	if err := DecodeInto(b, &m); err != nil {
 		return nil, err
 	}
 
@@ -123,32 +147,14 @@ func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
 }
 
 // DecodeInto decodes a serialized IPLD cbor object into the given object.
-func DecodeInto(b []byte, v interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("failed to unmarshal - cbor panic: %s", r)
-		}
-	}()
-
-	err = cbor.UnmarshalAtlased(b, v, cborAtlas)
-	return
-}
-
-// Decodes a cbor node into an object.
-func decodeCBOR(b []byte) (interface{}, error) {
-	var m interface{}
-
-	if err := DecodeInto(b, &m); err != nil {
-		return nil, err
-	}
-
-	return m, nil
+func DecodeInto(b []byte, v interface{}) error {
+	// The cbor library really doesnt make this sort of operation easy on us
+	return cbor.UnmarshalAtlased(b, v, cborAtlas)
 }
 
 // WrapObject converts an arbitrary object into a Node.
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
-	// fmt.Printf("wrapping object: %v\n", m)
-	data, err := DumpObject(m)
+	data, err := cbor.MarshalAtlased(m, cborAtlas)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +293,6 @@ func (n *Node) ResolveLink(path []string) (*node.Link, []string, error) {
 
 	lnk, ok := obj.(*node.Link)
 	if !ok {
-		// fmt.Printf("lnk %v - %s\n", obj, reflect.TypeOf(obj))
 		return nil, rest, ErrNonLink
 	}
 
@@ -346,9 +351,7 @@ func (n *Node) Links() []*node.Link {
 
 func compLinks(obj interface{}) ([]*node.Link, error) {
 	var out []*node.Link
-	// fmt.Printf("traversing: %v\n", obj)
 	err := traverse(obj, "", func(name string, val interface{}) error {
-		// fmt.Printf("t: %v, %s\n", val, reflect.TypeOf(val))
 		if lnk, ok := val.(cid.Cid); ok {
 			out = append(out, &node.Link{Cid: &lnk})
 		}
@@ -358,7 +361,6 @@ func compLinks(obj interface{}) ([]*node.Link, error) {
 		return nil, err
 	}
 
-	// fmt.Printf("found links: %v\n", out)
 	return out, nil
 }
 
@@ -366,7 +368,7 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 	if err := cb(cur, obj); err != nil {
 		return err
 	}
-	// fmt.Printf("obj-type: %s\n", reflect.TypeOf(obj))
+
 	switch obj := obj.(type) {
 	case map[string]interface{}:
 		for k, v := range obj {
@@ -448,19 +450,7 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 // DumpObject marshals any object into its CBOR serialized byte representation
 // TODO: rename
 func DumpObject(obj interface{}) (out []byte, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("failed to marshal - cbor panic: %s", r)
-		}
-	}()
-
-	out, err = cbor.MarshalAtlased(obj, cborAtlas)
-	if err != nil {
-		err = fmt.Errorf("failed to marshal: %s", err)
-	}
-
-	fmt.Printf("out: %x\n", out)
-	return
+	return cbor.MarshalAtlased(obj, cborAtlas)
 }
 
 func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
@@ -531,7 +521,6 @@ func FromJSON(r io.Reader, mhType uint64, mhLen int) (*Node, error) {
 		return nil, err
 	}
 
-	// fmt.Printf("fromjson: %s - %s\n", reflect.TypeOf(obj), obj)
 	return WrapObject(obj, mhType, mhLen)
 }
 
