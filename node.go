@@ -534,6 +534,14 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 			return cid.Decode(vstr)
 		}
 
+		for a, b := range v {
+			val, err := convertToCborIshObj(b)
+			if err != nil {
+				return nil, err
+			}
+
+			v[a] = val
+		}
 		return v, nil
 	case []interface{}:
 		if len(v) == 0 && v != nil {
