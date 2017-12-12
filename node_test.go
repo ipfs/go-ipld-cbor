@@ -139,8 +139,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(nd1.Cid(), "zdpuAwc5bPhfHGdA4rs3qKzr3QB3Fjp3D16C8BRRyWzTPpY9R"); err != nil {
-
+	if err := assertCid(nd1.Cid(), "zdpuAo2h1rUzWW3EPm1WBaLhTcq7G3RoXk2o7rqD1qm4jdzrE"); err != nil {
 		orig, err1 := json.Marshal(obj)
 		if err1 != nil {
 			t.Fatal(err1)
@@ -152,7 +151,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 		t.Fatalf("%s != %s\n%s", orig, js, err)
 	}
 
-	if len(nd1.Links()) != 3 {
+	if len(nd1.Links()) != 4 {
 		t.Fatal("didnt have enough links")
 	}
 
@@ -321,8 +320,9 @@ func TestFromJson(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, ok := n.obj.(map[string]interface{})["something"].(*cid.Cid)
+	c, ok := n.obj.(map[string]interface{})["something"].(cid.Cid)
 	if !ok {
+		fmt.Printf("%#v\n", n.obj)
 		t.Fatal("expected a cid")
 	}
 
@@ -411,7 +411,6 @@ func TestObjects(t *testing.T) {
 	}
 
 	var cases map[string]map[string]string
-
 	err = json.Unmarshal(raw, &cases)
 	if err != nil {
 		t.Fatal(err)
