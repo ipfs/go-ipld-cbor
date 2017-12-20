@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	blocks "github.com/ipfs/go-block-format"
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-format"
-	mh "github.com/multiformats/go-multihash"
+	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
+	node "gx/ipfs/QmPN7cwmpcc4DWXb4KTB9dNAJgjuPY69h3npsMfhRrQL9c/go-ipld-format"
+	blocks "gx/ipfs/QmSn9Td7xgxm9EV7iEjTckpUWmWApggzPxu7eFGWkkpwin/go-block-format"
+	mh "gx/ipfs/QmU9a9NV9RdPNwZQDYd5uKsm6N6LJLSvLbywDDYFbaaC6P/go-multihash"
 
 	cbor "github.com/polydawn/refmt/cbor"
 	"github.com/polydawn/refmt/obj/atlas"
@@ -69,7 +69,12 @@ var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
 		})).
 	Complete()
 
-var cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry)
+var cborAtlas atlas.Atlas
+
+func init() {
+	cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry)
+	cborAtlas.MapMorphism = &atlas.MapMorphism{atlas.KeySortMode_RFC7049}
+}
 
 var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
@@ -78,10 +83,11 @@ func RegisterCborType(i interface{}) {
 	if ae, ok := i.(*atlas.AtlasEntry); ok {
 		entry = ae
 	} else {
-		entry = atlas.BuildEntry(i).StructMap().Autogenerate().Complete()
+		entry = atlas.BuildEntry(i).StructMap().AutogenerateWithSortingScheme(atlas.StructFieldSort_RFC7049).Complete()
 	}
 	atlasEntries = append(atlasEntries, entry)
 	cborAtlas = atlas.MustBuild(atlasEntries...)
+	cborAtlas.MapMorphism = &atlas.MapMorphism{atlas.KeySortMode_RFC7049}
 }
 
 // DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
