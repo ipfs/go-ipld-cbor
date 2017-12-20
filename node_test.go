@@ -2,17 +2,19 @@ package cbornode
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"sort"
 	"strings"
 	"testing"
 
-	blocks "github.com/ipfs/go-block-format"
-	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
-	mh "github.com/multiformats/go-multihash"
+	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
+	u "gx/ipfs/QmSU6eubNdhXjFBJBSksTp8kv8YRub8mGAPv8tVJHmL2EU/go-ipfs-util"
+	blocks "gx/ipfs/QmSn9Td7xgxm9EV7iEjTckpUWmWApggzPxu7eFGWkkpwin/go-block-format"
+	mh "gx/ipfs/QmU9a9NV9RdPNwZQDYd5uKsm6N6LJLSvLbywDDYFbaaC6P/go-multihash"
 )
 
 func assertCid(c *cid.Cid, exp string) error {
@@ -498,5 +500,38 @@ func TestStableCID(t *testing.T) {
 
 	if !badBlock.Cid().Equals(badNode.Cid()) {
 		t.Fatal("CIDs not stable")
+	}
+}
+
+func TestCanonicalStructEncoding(t *testing.T) {
+	type Foo struct {
+		Zebra string
+		Dog   int
+		Cats  float64
+		Whale string
+		Cat   bool
+	}
+	RegisterCborType(Foo{})
+
+	s := Foo{
+		Zebra: "seven",
+		Dog:   15,
+		Cats:  1.519,
+		Whale: "never",
+		Cat:   true,
+	}
+
+	m, err := WrapObject(s, math.MaxUint64, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expraw, err := hex.DecodeString("a563636174f563646f670f6463617473fb3ff84dd2f1a9fbe7657768616c65656e65766572657a6562726165736576656e")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(expraw, m.RawData()) {
+		t.Fatal("not canonical")
 	}
 }
