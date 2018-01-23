@@ -44,6 +44,7 @@ var (
 	ErrNoLinks          = errors.New("tried to resolve through object that had no links")
 	ErrEmptyLink        = errors.New("link value was empty")
 	ErrInvalidMultibase = errors.New("invalid multibase on IPLD link")
+	ErrNonStringLink    = errors.New("link should have been a string")
 )
 
 // This atlas describes the CBOR Tag (42) for IPLD links, such that refmt can marshal and unmarshal them
@@ -74,9 +75,10 @@ var cborSortingMode = atlas.KeySortMode_RFC7049
 var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
 func init() {
-	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{cborSortingMode})
+	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{KeySortMode: cborSortingMode})
 }
 
+// RegisterCborType allows to register a custom cbor type
 func RegisterCborType(i interface{}) {
 	var entry *atlas.AtlasEntry
 	if ae, ok := i.(*atlas.AtlasEntry); ok {
@@ -85,7 +87,7 @@ func RegisterCborType(i interface{}) {
 		entry = atlas.BuildEntry(i).StructMap().AutogenerateWithSortingScheme(atlas.KeySortMode_RFC7049).Complete()
 	}
 	atlasEntries = append(atlasEntries, entry)
-	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{cborSortingMode})
+	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{KeySortMode: cborSortingMode})
 }
 
 // DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
@@ -281,6 +283,7 @@ func copyObj(i interface{}) interface{} {
 		}
 		return out
 	default:
+		// TODO: do not be lazy
 		// being lazy for now
 		// use caution
 		return i
@@ -539,7 +542,7 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 			// special case for links
 			vstr, ok := lnk.(string)
 			if !ok {
-				return nil, fmt.Errorf("link should have been a string")
+				return nil, ErrNonStringLink
 			}
 
 			return cid.Decode(vstr)
@@ -588,7 +591,7 @@ func castBytesToCid(x []byte) (cid.Cid, error) {
 
 	c, err := cid.Cast(x[1:])
 	if err != nil {
-		return cid.Cid{}, fmt.Errorf("invalid IPLD link: %s", err)
+		return cid.Cid{}, ErrInvalidLink
 	}
 
 	return *c, nil
