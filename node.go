@@ -70,13 +70,12 @@ var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
 	Complete()
 
 var cborAtlas atlas.Atlas
+var cborSortingMode = atlas.KeySortMode_RFC7049
+var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
 func init() {
-	cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry)
-	cborAtlas.MapMorphism = &atlas.MapMorphism{atlas.KeySortMode_RFC7049}
+	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{cborSortingMode})
 }
-
-var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
 func RegisterCborType(i interface{}) {
 	var entry *atlas.AtlasEntry
@@ -86,8 +85,7 @@ func RegisterCborType(i interface{}) {
 		entry = atlas.BuildEntry(i).StructMap().AutogenerateWithSortingScheme(atlas.KeySortMode_RFC7049).Complete()
 	}
 	atlasEntries = append(atlasEntries, entry)
-	cborAtlas = atlas.MustBuild(atlasEntries...)
-	cborAtlas.MapMorphism = &atlas.MapMorphism{atlas.KeySortMode_RFC7049}
+	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{cborSortingMode})
 }
 
 // DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
