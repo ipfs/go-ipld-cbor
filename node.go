@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	node "gx/ipfs/QmNwUEK7QbwSqyKBu3mMtToo8SUc6wQJ7gdZq4gGGJqfnf/go-ipld-format"
-	mh "gx/ipfs/QmYeKnKpubCMRiq3PGZcTREErthbb5Q9cXsCoSkD9bjEBd/go-multihash"
-	blocks "gx/ipfs/QmYsEQydGrsxNZfAiskvQ76N2xE9hDQtSAkRSynwMiUK3c/go-block-format"
-	cid "gx/ipfs/QmeSrf6pzut73u6zLQkRFQ3ygt3k6XFT2kjdYP8Tnkwwyg/go-cid"
+	blocks "github.com/ipfs/go-block-format"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-format"
+	mh "github.com/multiformats/go-multihash"
 
 	cbor "github.com/polydawn/refmt/cbor"
 	"github.com/polydawn/refmt/obj/atlas"
@@ -75,7 +75,7 @@ var cborSortingMode = atlas.KeySortMode_RFC7049
 var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
 func init() {
-	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{KeySortMode: cborSortingMode})
+	cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry).WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
 }
 
 // RegisterCborType allows to register a custom cbor type
@@ -87,7 +87,7 @@ func RegisterCborType(i interface{}) {
 		entry = atlas.BuildEntry(i).StructMap().AutogenerateWithSortingScheme(atlas.KeySortMode_RFC7049).Complete()
 	}
 	atlasEntries = append(atlasEntries, entry)
-	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{KeySortMode: cborSortingMode})
+	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
 }
 
 // DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
