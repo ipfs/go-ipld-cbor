@@ -42,6 +42,12 @@
       "hash": "QmZyZDi491cCNTLfAhwcaDii2Kg4pwKRkhqQzURGDvY6ua",
       "name": "go-multihash",
       "version": "1.0.7"
+    },
+    {
+      "author": "why",
+      "hash": "QmSaDQWMxJBMtzQWnGoDppbwSEbHv4aJcD86CMSdszPU4L",
+      "name": "refmt",
+      "version": "1.0.0"
     }
   ],
   "gxVersion": "0.10.0",
