@@ -142,6 +142,10 @@ func TestMarshalRoundtrip(t *testing.T) {
 		t.Fatal("didnt have enough links")
 	}
 
+	if nd1.Links()[0].Name != "/cats/qux" {
+		t.Fatalf("incorrect name %s", nd1.Links()[0].Name )
+	}
+
 	nd2, err := Decode(nd1.RawData(), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
