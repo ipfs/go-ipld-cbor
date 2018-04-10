@@ -310,7 +310,7 @@ func compLinks(obj interface{}) ([]*node.Link, error) {
 	var out []*node.Link
 	err := traverse(obj, "", func(name string, val interface{}) error {
 		if lnk, ok := val.(*cid.Cid); ok {
-			out = append(out, &node.Link{Cid: lnk})
+			out = append(out, &node.Link{Name: name, Cid: lnk})
 		}
 		return nil
 	})
