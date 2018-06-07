@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -59,23 +58,12 @@ var cidAtlasEntry = atlas.BuildEntry(cid.Cid{}).
 	)).
 	Complete()
 
-var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
-	TransformMarshal(atlas.MakeMarshalTransformFunc(
-		func(i big.Int) ([]byte, error) {
-			return i.Bytes(), nil
-		})).
-	TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
-		func(x []byte) (big.Int, error) {
-			return *big.NewInt(0).SetBytes(x), nil
-		})).
-	Complete()
-
 var cborAtlas atlas.Atlas
 var cborSortingMode = atlas.KeySortMode_RFC7049
-var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
+var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry}
 
 func init() {
-	cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry).WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
+	cborAtlas = atlas.MustBuild(cidAtlasEntry).WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
 }
 
 // RegisterCborType allows to register a custom cbor type
