@@ -14,9 +14,16 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
 	mh "github.com/multiformats/go-multihash"
 )
+
+func Hash(data []byte) mh.Multihash {
+	h, err := mh.Sum(data, mh.SHA2_256, -1)
+	if err != nil {
+		panic("multihash failed to hash using SHA2_256.")
+	}
+	return h
+}
 
 func assertCid(c *cid.Cid, exp string) error {
 	if c.String() != exp {
@@ -78,7 +85,7 @@ func TestDecodeIntoNonObject(t *testing.T) {
 }
 
 func TestBasicMarshal(t *testing.T) {
-	c := cid.NewCidV0(u.Hash([]byte("something")))
+	c := cid.NewCidV0(Hash([]byte("something")))
 
 	obj := map[string]interface{}{
 		"name": "foo",
@@ -121,9 +128,9 @@ func TestBasicMarshal(t *testing.T) {
 }
 
 func TestMarshalRoundtrip(t *testing.T) {
-	c1 := cid.NewCidV0(u.Hash([]byte("something1")))
-	c2 := cid.NewCidV0(u.Hash([]byte("something2")))
-	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
+	c1 := cid.NewCidV0(Hash([]byte("something1")))
+	c2 := cid.NewCidV0(Hash([]byte("something2")))
+	c3 := cid.NewCidV0(Hash([]byte("something3")))
 
 	obj := map[string]interface{}{
 		"foo":   "bar",
@@ -204,10 +211,10 @@ func assertStringsEqual(t *testing.T, a, b []string) {
 }
 
 func TestTree(t *testing.T) {
-	c1 := cid.NewCidV0(u.Hash([]byte("something1")))
-	c2 := cid.NewCidV0(u.Hash([]byte("something2")))
-	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
-	c4 := cid.NewCidV0(u.Hash([]byte("something4")))
+	c1 := cid.NewCidV0(Hash([]byte("something1")))
+	c2 := cid.NewCidV0(Hash([]byte("something2")))
+	c3 := cid.NewCidV0(Hash([]byte("something3")))
+	c4 := cid.NewCidV0(Hash([]byte("something4")))
 
 	obj := map[string]interface{}{
 		"foo": c1,
