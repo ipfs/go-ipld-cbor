@@ -39,7 +39,7 @@ var cborSortingMode = atlas.KeySortMode_RFC7049
 var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
 var (
-	numWorkers   = runtime.NumCPU() * 2
+	numWorkers   = runtime.NumCPU() + 1
 	cloner       = encoding.PooledCloner{Count: numWorkers}
 	unmarshaller = encoding.PooledUnmarshaller{Count: numWorkers}
 	marshaller   = encoding.PooledMarshaller{Count: numWorkers}
