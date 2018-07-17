@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -14,9 +13,6 @@ import (
 	cid "github.com/ipfs/go-cid"
 	node "github.com/ipfs/go-ipld-format"
 	mh "github.com/multiformats/go-multihash"
-
-	cbor "github.com/polydawn/refmt/cbor"
-	"github.com/polydawn/refmt/obj/atlas"
 )
 
 // CBORTagLink is the integer used to represent tags in CBOR.
@@ -47,49 +43,6 @@ var (
 	ErrNonStringLink    = errors.New("link should have been a string")
 )
 
-// This atlas describes the CBOR Tag (42) for IPLD links, such that refmt can marshal and unmarshal them
-var cidAtlasEntry = atlas.BuildEntry(cid.Cid{}).
-	UseTag(CBORTagLink).
-	Transform().
-	TransformMarshal(atlas.MakeMarshalTransformFunc(
-		castCidToBytes,
-	)).
-	TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
-		castBytesToCid,
-	)).
-	Complete()
-
-var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
-	TransformMarshal(atlas.MakeMarshalTransformFunc(
-		func(i big.Int) ([]byte, error) {
-			return i.Bytes(), nil
-		})).
-	TransformUnmarshal(atlas.MakeUnmarshalTransformFunc(
-		func(x []byte) (big.Int, error) {
-			return *big.NewInt(0).SetBytes(x), nil
-		})).
-	Complete()
-
-var cborAtlas atlas.Atlas
-var cborSortingMode = atlas.KeySortMode_RFC7049
-var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
-
-func init() {
-	cborAtlas = atlas.MustBuild(cidAtlasEntry, bigIntAtlasEntry).WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
-}
-
-// RegisterCborType allows to register a custom cbor type
-func RegisterCborType(i interface{}) {
-	var entry *atlas.AtlasEntry
-	if ae, ok := i.(*atlas.AtlasEntry); ok {
-		entry = ae
-	} else {
-		entry = atlas.BuildEntry(i).StructMap().AutogenerateWithSortingScheme(atlas.KeySortMode_RFC7049).Complete()
-	}
-	atlasEntries = append(atlasEntries, entry)
-	cborAtlas = atlas.MustBuild(atlasEntries...).WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
-}
-
 // DecodeBlock decodes a CBOR encoded Block into an IPLD Node.
 //
 // This method *does not* canonicalize and *will* preserve the CID. As a matter
@@ -111,7 +64,10 @@ func decodeBlock(block blocks.Block) (*Node, error) {
 	if err := DecodeInto(block.RawData(), &m); err != nil {
 		return nil, err
 	}
+	return newObject(block, m)
+}
 
+func newObject(block blocks.Block, m interface{}) (*Node, error) {
 	tree, err := compTree(m)
 	if err != nil {
 		return nil, err
@@ -154,16 +110,22 @@ func Decode(b []byte, mhType uint64, mhLen int) (*Node, error) {
 
 // DecodeInto decodes a serialized IPLD cbor object into the given object.
 func DecodeInto(b []byte, v interface{}) error {
-	// The cbor library really doesnt make this sort of operation easy on us
-	return cbor.UnmarshalAtlased(b, v, cborAtlas)
+	return unmarshaller.Unmarshal(b, v)
 }
 
 // WrapObject converts an arbitrary object into a Node.
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
-	data, err := cbor.MarshalAtlased(m, cborAtlas)
+	data, err := marshaller.Marshal(m)
 	if err != nil {
 		return nil, err
 	}
+
+	var obj interface{}
+	err = cloner.Clone(m, &obj)
+	if err != nil {
+		return nil, err
+	}
+
 	if mhType == math.MaxUint64 {
 		mhType = mh.SHA2_256
 	}
@@ -179,9 +141,8 @@ func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
 		// TODO: Shouldn't this just panic?
 		return nil, err
 	}
-	// Do not reuse `m`. We need to re-decode it to put it in the right
-	// form.
-	return decodeBlock(block)
+	// No need to deserialize. We can just deep copy.
+	return newObject(block, obj)
 }
 
 // Resolve resolves a given path, and returns the object found at the end, as well
@@ -457,7 +418,7 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 // DumpObject marshals any object into its CBOR serialized byte representation
 // TODO: rename
 func DumpObject(obj interface{}) (out []byte, err error) {
-	return cbor.MarshalAtlased(obj, cborAtlas)
+	return marshaller.Marshal(obj)
 }
 
 func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
