@@ -49,12 +49,14 @@ type PooledUnmarshaller struct {
 	pool sync.Pool
 }
 
-// SetAtlas set sets the pool's atlas. It is *not* safe to call this
-// concurrently.
-func (p *PooledUnmarshaller) SetAtlas(atl atlas.Atlas) {
-	p.pool = sync.Pool{
-		New: func() interface{} {
-			return NewUnmarshallerAtlased(atl)
+// NewPooledUnmarshaller returns a PooledUnmarshaller with the given atlas. Do
+// not copy after use.
+func NewPooledUnmarshaller(atl atlas.Atlas) PooledUnmarshaller {
+	return PooledUnmarshaller{
+		pool: sync.Pool{
+			New: func() interface{} {
+				return NewUnmarshallerAtlased(atl)
+			},
 		},
 	}
 }
