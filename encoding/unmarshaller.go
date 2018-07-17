@@ -3,6 +3,7 @@ package encoding
 import (
 	"bytes"
 	"io"
+	"sync"
 
 	cbor "github.com/polydawn/refmt/cbor"
 	"github.com/polydawn/refmt/obj/atlas"
@@ -45,32 +46,32 @@ func (m *Unmarshaller) Unmarshal(b []byte, obj interface{}) error {
 
 // PooledUnmarshaller is a thread-safe pooled CBOR unmarshaller.
 type PooledUnmarshaller struct {
-	Count         int
-	unmarshallers chan *Unmarshaller
+	pool sync.Pool
 }
 
 // SetAtlas set sets the pool's atlas. It is *not* safe to call this
 // concurrently.
-func (p *PooledUnmarshaller) SetAtlas(atlas atlas.Atlas) {
-	p.unmarshallers = make(chan *Unmarshaller, p.Count)
-	for len(p.unmarshallers) < cap(p.unmarshallers) {
-		p.unmarshallers <- NewUnmarshallerAtlased(atlas)
+func (p *PooledUnmarshaller) SetAtlas(atl atlas.Atlas) {
+	p.pool = sync.Pool{
+		New: func() interface{} {
+			return NewUnmarshallerAtlased(atl)
+		},
 	}
 }
 
 // Decode decodes an object from the passed reader into the given object using
 // the pool of unmarshallers.
 func (p *PooledUnmarshaller) Decode(r io.Reader, obj interface{}) error {
-	u := <-p.unmarshallers
+	u := p.pool.Get().(*Unmarshaller)
 	err := u.Decode(r, obj)
-	p.unmarshallers <- u
+	p.pool.Put(u)
 	return err
 }
 
 // Unmarshal unmarshals the passed object using the pool of unmarshallers.
 func (p *PooledUnmarshaller) Unmarshal(b []byte, obj interface{}) error {
-	u := <-p.unmarshallers
+	u := p.pool.Get().(*Unmarshaller)
 	err := u.Unmarshal(b, obj)
-	p.unmarshallers <- u
+	p.pool.Put(u)
 	return err
 }
