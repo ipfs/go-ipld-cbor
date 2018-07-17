@@ -3,6 +3,7 @@ package encoding
 import (
 	"bytes"
 	"io"
+	"sync"
 
 	cbor "github.com/polydawn/refmt/cbor"
 	"github.com/polydawn/refmt/obj/atlas"
@@ -48,32 +49,32 @@ func (m *Marshaller) Marshal(obj interface{}) ([]byte, error) {
 
 // PooledMarshaller is a thread-safe pooled CBOR marshaller.
 type PooledMarshaller struct {
-	Count       int
-	marshallers chan *Marshaller
+	pool sync.Pool
 }
 
 // SetAtlas set sets the pool's atlas. It is *not* safe to call this
 // concurrently.
-func (p *PooledMarshaller) SetAtlas(atlas atlas.Atlas) {
-	p.marshallers = make(chan *Marshaller, p.Count)
-	for len(p.marshallers) < cap(p.marshallers) {
-		p.marshallers <- NewMarshallerAtlased(atlas)
+func (p *PooledMarshaller) SetAtlas(atl atlas.Atlas) {
+	p.pool = sync.Pool{
+		New: func() interface{} {
+			return NewMarshallerAtlased(atl)
+		},
 	}
 }
 
 // Marshal marshals the passed object using the pool of marshallers.
 func (p *PooledMarshaller) Marshal(obj interface{}) ([]byte, error) {
-	m := <-p.marshallers
+	m := p.pool.Get().(*Marshaller)
 	bts, err := m.Marshal(obj)
-	p.marshallers <- m
+	p.pool.Put(m)
 	return bts, err
 }
 
 // Encode encodes the passed object to the given writer using the pool of
 // marshallers.
 func (p *PooledMarshaller) Encode(obj interface{}, w io.Writer) error {
-	m := <-p.marshallers
+	m := p.pool.Get().(*Marshaller)
 	err := m.Encode(obj, w)
-	p.marshallers <- m
+	p.pool.Put(m)
 	return err
 }

@@ -2,7 +2,6 @@ package cbornode
 
 import (
 	"math/big"
-	"runtime"
 
 	cid "github.com/ipfs/go-cid"
 
@@ -39,10 +38,9 @@ var cborSortingMode = atlas.KeySortMode_RFC7049
 var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
 
 var (
-	numWorkers   = runtime.NumCPU() + 1
-	cloner       = encoding.PooledCloner{Count: numWorkers}
-	unmarshaller = encoding.PooledUnmarshaller{Count: numWorkers}
-	marshaller   = encoding.PooledMarshaller{Count: numWorkers}
+	cloner       encoding.PooledCloner
+	unmarshaller encoding.PooledUnmarshaller
+	marshaller   encoding.PooledMarshaller
 )
 
 func init() {
