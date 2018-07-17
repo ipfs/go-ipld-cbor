@@ -1,6 +1,7 @@
 package cbornode
 
 import (
+	"sync"
 	"testing"
 
 	mh "github.com/multiformats/go-multihash"
@@ -44,6 +45,7 @@ func BenchmarkWrapObject(b *testing.B) {
 		}
 	}
 }
+
 func BenchmarkDecodeBlock(b *testing.B) {
 	obj := testStruct()
 	nd, err := WrapObject(obj, mh.SHA2_256, -1)
@@ -57,4 +59,46 @@ func BenchmarkDecodeBlock(b *testing.B) {
 			b.Fatal(err, nd2)
 		}
 	}
+}
+
+func BenchmarkWrapObjectParallel(b *testing.B) {
+	obj := testStruct()
+	b.ResetTimer()
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for j := 0; j < 100; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < b.N; i++ {
+				nd, err := WrapObject(obj, mh.SHA2_256, -1)
+				if err != nil {
+					b.Fatal(err, nd)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func BenchmarkDecodeBlockParallel(b *testing.B) {
+	obj := testStruct()
+	nd, err := WrapObject(obj, mh.SHA2_256, -1)
+	if err != nil {
+		b.Fatal(err, nd)
+	}
+	b.ResetTimer()
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for j := 0; j < 100; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < b.N; i++ {
+				nd2, err := DecodeBlock(nd)
+				if err != nil {
+					b.Fatal(err, nd2)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
