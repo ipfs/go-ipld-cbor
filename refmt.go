@@ -51,9 +51,9 @@ func rebuildAtlas() {
 	cborAtlas = atlas.MustBuild(atlasEntries...).
 		WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
 
-	marshaller.SetAtlas(cborAtlas)
-	unmarshaller.SetAtlas(cborAtlas)
-	cloner.SetAtlas(cborAtlas)
+	marshaller = encoding.NewPooledMarshaller(cborAtlas)
+	unmarshaller = encoding.NewPooledUnmarshaller(cborAtlas)
+	cloner = encoding.NewPooledCloner(cborAtlas)
 }
 
 // RegisterCborType allows to register a custom cbor type

@@ -12,12 +12,14 @@ type PooledCloner struct {
 	pool sync.Pool
 }
 
-// SetAtlas set sets the pool's atlas. It is *not* safe to call this
-// concurrently.
-func (p *PooledCloner) SetAtlas(atl atlas.Atlas) {
-	p.pool = sync.Pool{
-		New: func() interface{} {
-			return refmt.NewCloner(atl)
+// NewPooledCloner returns a PooledCloner with the given atlas. Do not copy
+// after use.
+func NewPooledCloner(atl atlas.Atlas) PooledCloner {
+	return PooledCloner{
+		pool: sync.Pool{
+			New: func() interface{} {
+				return refmt.NewCloner(atl)
+			},
 		},
 	}
 }
