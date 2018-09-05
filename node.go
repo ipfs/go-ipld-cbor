@@ -120,7 +120,7 @@ type Node struct {
 	tree  []string
 	links []*node.Link
 	raw   []byte
-	cid   *cid.Cid
+	cid   cid.Cid
 }
 
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
@@ -170,14 +170,14 @@ func (n *Node) Resolve(path []string) (interface{}, []string, error) {
 			}
 
 			cur = curv[n]
-		case *cid.Cid:
+		case cid.Cid:
 			return &node.Link{Cid: curv}, path[i:], nil
 		default:
 			return nil, nil, errors.New("tried to resolve through object that had no links")
 		}
 	}
 
-	lnk, ok := cur.(*cid.Cid)
+	lnk, ok := cur.(cid.Cid)
 	if ok {
 		return &node.Link{Cid: lnk}, nil, nil
 	}
@@ -309,7 +309,7 @@ func (n *Node) Links() []*node.Link {
 func compLinks(obj interface{}) ([]*node.Link, error) {
 	var out []*node.Link
 	err := traverse(obj, "", func(name string, val interface{}) error {
-		if lnk, ok := val.(*cid.Cid); ok {
+		if lnk, ok := val.(cid.Cid); ok {
 			out = append(out, &node.Link{Cid: lnk})
 		}
 		return nil
@@ -367,7 +367,7 @@ func DumpObject(obj interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (n *Node) Cid() *cid.Cid {
+func (n *Node) Cid() cid.Cid {
 	return n.cid
 }
 
@@ -514,7 +514,7 @@ func convertToCborIshObj(i interface{}) (interface{}, error) {
 }
 
 func EncoderFilter(i interface{}) interface{} {
-	link, ok := i.(*cid.Cid)
+	link, ok := i.(cid.Cid)
 	if !ok {
 		return i
 	}

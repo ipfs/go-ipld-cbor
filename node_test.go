@@ -15,7 +15,7 @@ import (
 	mh "github.com/multiformats/go-multihash"
 )
 
-func assertCid(c *cid.Cid, exp string) error {
+func assertCid(c cid.Cid, exp string) error {
 	if c.String() != exp {
 		return fmt.Errorf("expected cid of %s, got %s", exp, c)
 	}
@@ -298,7 +298,7 @@ func TestFromJson(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, ok := n.obj.(map[interface{}]interface{})["something"].(*cid.Cid)
+	c, ok := n.obj.(map[interface{}]interface{})["something"].(cid.Cid)
 	if !ok {
 		t.Fatal("expected a cid")
 	}
