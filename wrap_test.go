@@ -7,31 +7,31 @@ import (
 	mh "github.com/multiformats/go-multihash"
 )
 
-type myStruct struct {
-	items map[string]myStruct
-	foo   string
-	bar   []byte
-	baz   []int
+type MyStruct struct {
+	Items map[string]MyStruct
+	Foo   string
+	Bar   []byte
+	Baz   []int
 }
 
 func init() {
-	RegisterCborType(myStruct{})
+	RegisterCborType(MyStruct{})
 }
 
-func testStruct() myStruct {
-	return myStruct{
-		items: map[string]myStruct{
-			"foo": {
-				foo: "foo",
-				bar: []byte("bar"),
-				baz: []int{1, 2, 3, 4},
+func testStruct() MyStruct {
+	return MyStruct{
+		Items: map[string]MyStruct{
+			"Foo": {
+				Foo: "Foo",
+				Bar: []byte("Bar"),
+				Baz: []int{1, 2, 3, 4},
 			},
-			"bar": {
-				bar: []byte("bar"),
-				baz: []int{1, 2, 3, 4},
+			"Bar": {
+				Bar: []byte("Bar"),
+				Baz: []int{1, 2, 3, 4},
 			},
 		},
-		baz: []int{5, 1, 2},
+		Baz: []int{5, 1, 2},
 	}
 }
 
@@ -101,4 +101,14 @@ func BenchmarkDecodeBlockParallel(b *testing.B) {
 		}()
 	}
 	wg.Wait()
+}
+
+func BenchmarkDumpObject(b *testing.B) {
+	obj := testStruct()
+	for i := 0; i < b.N; i++ {
+		bytes, err := DumpObject(obj)
+		if err != nil {
+			b.Fatal(err, bytes)
+		}
+	}
 }
