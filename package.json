@@ -41,7 +41,13 @@
       "author": "multiformats",
       "hash": "QmPnFwZ2JXKnXgMw8CdBPxn7FWh6LLdjUjxV1fKHuJnkr8",
       "name": "go-multihash",
-      "version": "1.0.8"
+      "version": "1.0.7"
+    },
+    {
+      "author": "why",
+      "hash": "QmcrriCMhjb5ZWzmPNxmP53px47tSPcXBNaMtLdgcKFJYk",
+      "name": "refmt",
+      "version": "1.1.0"
     }
   ],
   "gxVersion": "0.10.0",

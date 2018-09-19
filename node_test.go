@@ -2,9 +2,12 @@ package cbornode
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
+	"math/big"
 	"sort"
 	"strings"
 	"testing"
@@ -53,6 +56,7 @@ func TestDecodeInto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(m) != 1 || m["name"] != "foo" {
 		t.Fatal("failed to decode object")
 	}
@@ -80,7 +84,7 @@ func TestBasicMarshal(t *testing.T) {
 		"name": "foo",
 		"bar":  c,
 	}
-
+	fmt.Printf("cid: %s\n", c.String())
 	nd, err := WrapObject(obj, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
@@ -94,6 +98,9 @@ func TestBasicMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fmt.Printf("before %v\n", nd.RawData())
+	fmt.Printf("after %v\n", back.RawData())
 
 	if err := assertCid(back.Cid(), "zdpuApUZEHofKXuTs2Yv2CLBeiASQrc9FojFLSZWcyZq6dZhb"); err != nil {
 		t.Fatal(err)
@@ -118,8 +125,9 @@ func TestMarshalRoundtrip(t *testing.T) {
 	c2 := cid.NewCidV0(u.Hash([]byte("something2")))
 	c3 := cid.NewCidV0(u.Hash([]byte("something3")))
 
-	obj := map[interface{}]interface{}{
-		"foo": "bar",
+	obj := map[string]interface{}{
+		"foo":   "bar",
+		"hello": c1,
 		"baz": []interface{}{
 			c1,
 			c2,
@@ -134,11 +142,19 @@ func TestMarshalRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(nd1.Cid(), "zdpuAwc5bPhfHGdA4rs3qKzr3QB3Fjp3D16C8BRRyWzTPpY9R"); err != nil {
-		t.Fatal(err)
+	if err := assertCid(nd1.Cid(), "zdpuAo2h1rUzWW3EPm1WBaLhTcq7G3RoXk2o7rqD1qm4jdzrE"); err != nil {
+		orig, err1 := json.Marshal(obj)
+		if err1 != nil {
+			t.Fatal(err1)
+		}
+		js, err1 := nd1.MarshalJSON()
+		if err1 != nil {
+			t.Fatal(err1)
+		}
+		t.Fatalf("%s != %s\n%s", orig, js, err)
 	}
 
-	if len(nd1.Links()) != 3 {
+	if len(nd1.Links()) != 4 {
 		t.Fatal("didnt have enough links")
 	}
 
@@ -196,13 +212,13 @@ func TestTree(t *testing.T) {
 	obj := map[string]interface{}{
 		"foo": c1,
 		"baz": []interface{}{c2, c3, "c"},
-		"cats": map[interface{}]interface{}{
+		"cats": map[string]interface{}{
 			"qux": map[string]interface{}{
 				"boo": 1,
 				"baa": c4,
 				"bee": 3,
 				"bii": 4,
-				"buu": map[interface{}]string{
+				"buu": map[string]string{
 					"coat": "rain",
 				},
 			},
@@ -258,6 +274,15 @@ func TestTree(t *testing.T) {
 }
 
 func TestParsing(t *testing.T) {
+	// This shouldn't pass
+	// Debug representation from cbor.io is
+	//
+	// D9 0102                              # tag(258)
+	// 58 25                                # bytes(37)
+	//    A503221220659650FC3443C916428048EFC5BA4558DC863594980A59F5CB3C4D84867E6D31 # "\xA5\x03\"\x12 e\x96P\xFC4C\xC9\x16B\x80H\xEF\xC5\xBAEX\xDC\x865\x94\x98\nY\xF5\xCB<M\x84\x86~m1"
+	//
+	t.Skip()
+
 	b := []byte("\xd9\x01\x02\x58\x25\xa5\x03\x22\x12\x20\x65\x96\x50\xfc\x34\x43\xc9\x16\x42\x80\x48\xef\xc5\xba\x45\x58\xdc\x86\x35\x94\x98\x0a\x59\xf5\xcb\x3c\x4d\x84\x86\x7e\x6d\x31")
 
 	n, err := Decode(b, mh.SHA2_256, -1)
@@ -290,7 +315,7 @@ func TestFromJson(t *testing.T) {
                 {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"}
         ]
 }`
-	n, err := FromJson(bytes.NewReader([]byte(data)), mh.SHA2_256, -1)
+	n, err := FromJSON(bytes.NewReader([]byte(data)), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,8 +323,9 @@ func TestFromJson(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, ok := n.obj.(map[interface{}]interface{})["something"].(cid.Cid)
+	c, ok := n.obj.(map[string]interface{})["something"].(cid.Cid)
 	if !ok {
+		fmt.Printf("%#v\n", n.obj)
 		t.Fatal("expected a cid")
 	}
 
@@ -315,7 +341,7 @@ func TestResolvedValIsJsonable(t *testing.T) {
 			"baz": 2
 		}
 	}`
-	n, err := FromJson(strings.NewReader(data), mh.SHA2_256, -1)
+	n, err := FromJSON(strings.NewReader(data), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,31 +377,77 @@ func TestExamples(t *testing.T) {
 		`{"a":"IPFS","b":null,"c":[1]}`: "zdpuAyoYWNEe6xcGhkYk2SUfc7Rtbk4GkmZCrNAAnpft4Mmj5",
 		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw",
 	}
-	for originalJson, expcid := range examples {
-		n, err := FromJson(bytes.NewReader([]byte(originalJson)), mh.SHA2_256, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := assertCid(n.Cid(), expcid); err != nil {
-			t.Fatalf("for object %s: %s", originalJson, err)
-		}
+	for originalJSON, expcid := range examples {
+		t.Run(originalJSON, func(t *testing.T) {
+			check := func(err error) {
+				if err != nil {
+					t.Fatalf("for object %s: %s", originalJSON, err)
+				}
+			}
 
-		cbor := n.RawData()
-		node, err := Decode(cbor, mh.SHA2_256, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
+			n, err := FromJSON(bytes.NewReader([]byte(originalJSON)), mh.SHA2_256, -1)
+			check(err)
+			check(assertCid(n.Cid(), expcid))
 
-		node, err = Decode(cbor, mh.SHA2_256, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
+			cbor := n.RawData()
+			_, err = Decode(cbor, mh.SHA2_256, -1)
+			check(err)
 
-		jsonBytes, err := node.MarshalJSON()
-		json := string(jsonBytes)
-		if json != originalJson {
-			t.Fatal("marshaled to incorrect JSON: " + json)
-		}
+			node, err := Decode(cbor, mh.SHA2_256, -1)
+			check(err)
+
+			jsonBytes, err := node.MarshalJSON()
+			check(err)
+
+			json := string(jsonBytes)
+			if json != originalJSON {
+				t.Fatalf("marshaled to incorrect JSON: %s != %s", originalJSON, json)
+			}
+		})
+	}
+}
+
+func TestObjects(t *testing.T) {
+	raw, err := ioutil.ReadFile("test_objects/expected.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cases map[string]map[string]string
+	err = json.Unmarshal(raw, &cases)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, c := range cases {
+		t.Run(k, func(t *testing.T) {
+			in, err := ioutil.ReadFile(fmt.Sprintf("test_objects/%s.json", k))
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected, err := ioutil.ReadFile(fmt.Sprintf("test_objects/%s.cbor", k))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			nd, err := FromJSON(bytes.NewReader(in), mh.SHA2_256, -1)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cExp, err := cid.Decode(c["/"])
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !bytes.Equal(nd.RawData(), expected) {
+				t.Fatalf("bytes do not match: %x != %x", nd.RawData(), expected)
+			}
+
+			if !nd.Cid().Equals(cExp) {
+				t.Fatalf("cid missmatch: %s != %s", nd.String(), cExp.String())
+			}
+		})
 	}
 }
 
@@ -430,4 +502,105 @@ func TestStableCID(t *testing.T) {
 	if !badBlock.Cid().Equals(badNode.Cid()) {
 		t.Fatal("CIDs not stable")
 	}
+}
+
+func TestCanonicalStructEncoding(t *testing.T) {
+	type Foo struct {
+		Zebra string
+		Dog   int
+		Cats  float64
+		Whale string
+		Cat   bool
+	}
+	RegisterCborType(Foo{})
+
+	s := Foo{
+		Zebra: "seven",
+		Dog:   15,
+		Cats:  1.519,
+		Whale: "never",
+		Cat:   true,
+	}
+
+	m, err := WrapObject(s, math.MaxUint64, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expraw, err := hex.DecodeString("a563636174f563646f670f6463617473fb3ff84dd2f1a9fbe7657768616c65656e65766572657a6562726165736576656e")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(expraw, m.RawData()) {
+		t.Fatal("not canonical")
+	}
+}
+
+type TestMe struct {
+	Hello *big.Int
+	World big.Int
+	Hi    int
+}
+
+func TestBigIntRoundtrip(t *testing.T) {
+	RegisterCborType(TestMe{})
+
+	one := TestMe{
+		Hello: big.NewInt(100),
+		World: *big.NewInt(99),
+	}
+
+	bytes, err := DumpObject(&one)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var oneBack TestMe
+	if err := DecodeInto(bytes, &oneBack); err != nil {
+		t.Fatal(err)
+	}
+
+	if one.Hello.Cmp(oneBack.Hello) != 0 {
+		t.Fatal("failed to roundtrip *big.Int")
+	}
+
+	if one.World.Cmp(&oneBack.World) != 0 {
+		t.Fatal("failed to roundtrip big.Int")
+	}
+
+	list := map[string]*TestMe{
+		"hello": &TestMe{Hello: big.NewInt(10), World: *big.NewInt(101), Hi: 1},
+		"world": &TestMe{Hello: big.NewInt(9), World: *big.NewInt(901), Hi: 3},
+	}
+
+	bytes, err = DumpObject(list)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var listBack map[string]*TestMe
+	if err := DecodeInto(bytes, &listBack); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(listBack["hello"])
+	t.Log(listBack["world"])
+
+	if list["hello"].Hello.Cmp(listBack["hello"].Hello) != 0 {
+		t.Fatalf("failed to roundtrip *big.Int: %s != %s", list["hello"].Hello, listBack["hello"].Hello)
+	}
+
+	if list["hello"].World.Cmp(&listBack["hello"].World) != 0 {
+		t.Fatalf("failed to roundtrip big.Int: %s != %s", &list["hello"].World, &listBack["hello"].World)
+	}
+
+	if list["world"].Hello.Cmp(listBack["world"].Hello) != 0 {
+		t.Fatalf("failed to roundtrip *big.Int: %s != %s", list["world"].Hello, listBack["world"].Hello)
+	}
+
+	if list["world"].World.Cmp(&listBack["world"].World) != 0 {
+		t.Fatalf("failed to roundtrip big.Int: %s != %s", &list["world"].World, &listBack["world"].World)
+	}
+
 }
