@@ -512,6 +512,7 @@ func TestCanonicalStructEncoding(t *testing.T) {
 		Whale string
 		Cat   bool
 	}
+	RegisterCborType(BigIntAtlasEntry)
 	RegisterCborType(Foo{})
 
 	s := Foo{
