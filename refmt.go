@@ -22,7 +22,9 @@ var cidAtlasEntry = atlas.BuildEntry(cid.Cid{}).
 	)).
 	Complete()
 
-var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
+// BigIntAtlasEntry gives a reasonable default encoding for big.Int. It is not
+// included in the entries by default.
+var BigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
 	TransformMarshal(atlas.MakeMarshalTransformFunc(
 		func(i big.Int) ([]byte, error) {
 			return i.Bytes(), nil
@@ -33,9 +35,10 @@ var bigIntAtlasEntry = atlas.BuildEntry(big.Int{}).Transform().
 		})).
 	Complete()
 
-var cborAtlas atlas.Atlas
+// CborAtlas is the refmt.Atlas used by the CBOR IPLD decoder/encoder.
+var CborAtlas atlas.Atlas
 var cborSortingMode = atlas.KeySortMode_RFC7049
-var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry, bigIntAtlasEntry}
+var atlasEntries = []*atlas.AtlasEntry{cidAtlasEntry}
 
 var (
 	cloner       encoding.PooledCloner
@@ -48,12 +51,12 @@ func init() {
 }
 
 func rebuildAtlas() {
-	cborAtlas = atlas.MustBuild(atlasEntries...).
-		WithMapMorphism(atlas.MapMorphism{atlas.KeySortMode_RFC7049})
+	CborAtlas = atlas.MustBuild(atlasEntries...).
+		WithMapMorphism(atlas.MapMorphism{KeySortMode: atlas.KeySortMode_RFC7049})
 
-	marshaller = encoding.NewPooledMarshaller(cborAtlas)
-	unmarshaller = encoding.NewPooledUnmarshaller(cborAtlas)
-	cloner = encoding.NewPooledCloner(cborAtlas)
+	marshaller = encoding.NewPooledMarshaller(CborAtlas)
+	unmarshaller = encoding.NewPooledUnmarshaller(CborAtlas)
+	cloner = encoding.NewPooledCloner(CborAtlas)
 }
 
 // RegisterCborType allows to register a custom cbor type
