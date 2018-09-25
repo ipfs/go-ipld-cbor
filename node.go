@@ -3,7 +3,6 @@ package cbornode
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"strconv"
@@ -68,11 +67,7 @@ func decodeBlock(block blocks.Block) (*Node, error) {
 }
 
 func newObject(block blocks.Block, m interface{}) (*Node, error) {
-	tree, err := compTree(m)
-	if err != nil {
-		return nil, err
-	}
-	links, err := compLinks(m)
+	tree, links, err := compute(m)
 	if err != nil {
 		return nil, err
 	}
@@ -290,39 +285,26 @@ func (n *Node) Tree(path string, depth int) []string {
 	return out
 }
 
-func compTree(obj interface{}) ([]string, error) {
-	var out []string
-	err := traverse(obj, "", func(name string, val interface{}) error {
+func compute(obj interface{}) (tree []string, links []*node.Link, err error) {
+	err = traverse(obj, "", func(name string, val interface{}) error {
 		if name != "" {
-			out = append(out, name[1:])
+			tree = append(tree, name[1:])
+		}
+		if lnk, ok := val.(cid.Cid); ok {
+			links = append(links, &node.Link{Cid: lnk})
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return out, nil
+	return tree, links, nil
 }
 
 // Links lists all known links of the Node.
 func (n *Node) Links() []*node.Link {
 	return n.links
-}
-
-func compLinks(obj interface{}) ([]*node.Link, error) {
-	var out []*node.Link
-	err := traverse(obj, "", func(name string, val interface{}) error {
-		if lnk, ok := val.(cid.Cid); ok {
-			out = append(out, &node.Link{Cid: lnk})
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return out, nil
 }
 
 func traverse(obj interface{}, cur string, cb func(string, interface{}) error) error {
@@ -353,7 +335,7 @@ func traverse(obj interface{}, cur string, cb func(string, interface{}) error) e
 		return nil
 	case []interface{}:
 		for i, v := range obj {
-			this := fmt.Sprintf("%s/%d", cur, i)
+			this := cur + "/" + strconv.Itoa(i)
 			if err := traverse(v, this, cb); err != nil {
 				return err
 			}
