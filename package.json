@@ -1,7 +1,7 @@
 {
   "author": "whyrusleeping",
   "bugs": {
-    "url": "https://github.com/ipfs/go-cbor-node"
+    "url": "https://github.com/ipfs/go-ipld-cbor"
   },
   "gx": {
     "dvcsimport": "github.com/ipfs/go-ipld-cbor"
@@ -26,12 +26,6 @@
       "version": "1.2.8"
     },
     {
-      "author": "whyrusleeping",
-      "hash": "QmcRKRQjNc2JZPHApR32fbkZVd6WXG2Ch9Kcy7sPxuAJgd",
-      "name": "cbor",
-      "version": "0.2.3"
-    },
-    {
       "author": "stebalien",
       "hash": "QmRcHuYzAyswytBuMF78rj3LTChYszomRFXNg4685ZN1WM",
       "name": "go-block-format",
@@ -52,7 +46,7 @@
   ],
   "gxVersion": "0.10.0",
   "language": "go",
-  "license": "",
+  "license": "MIT",
   "name": "go-ipld-cbor",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
   "version": "1.5.4"
