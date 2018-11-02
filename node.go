@@ -534,5 +534,8 @@ func castBytesToCid(x []byte) (cid.Cid, error) {
 }
 
 func castCidToBytes(link cid.Cid) ([]byte, error) {
+	if !link.Defined() {
+		return nil, ErrEmptyLink
+	}
 	return append([]byte{0}, link.Bytes()...), nil
 }
