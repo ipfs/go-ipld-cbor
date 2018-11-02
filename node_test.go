@@ -88,7 +88,6 @@ func TestBasicMarshal(t *testing.T) {
 		"name": "foo",
 		"bar":  c,
 	}
-	fmt.Printf("cid: %s\n", c.String())
 	nd, err := WrapObject(obj, mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
@@ -102,9 +101,6 @@ func TestBasicMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Printf("before %v\n", nd.RawData())
-	fmt.Printf("after %v\n", back.RawData())
 
 	if err := assertCid(back.Cid(), "zdpuApUZEHofKXuTs2Yv2CLBeiASQrc9FojFLSZWcyZq6dZhb"); err != nil {
 		t.Fatal(err)
