@@ -18,6 +18,10 @@ import (
 	mh "github.com/multiformats/go-multihash"
 )
 
+func init() {
+	RegisterCborType(BigIntAtlasEntry)
+}
+
 func assertCid(c cid.Cid, exp string) error {
 	if c.String() != exp {
 		return fmt.Errorf("expected cid of %s, got %s", exp, c)
@@ -504,6 +508,27 @@ func TestStableCID(t *testing.T) {
 	}
 }
 
+func TestCidAndBigInt(t *testing.T) {
+	type Foo struct {
+		B *big.Int
+		A cid.Cid
+	}
+	RegisterCborType(Foo{})
+
+	nd, err := WrapObject("", mh.SHA2_256, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := nd.Cid()
+	_, err = WrapObject(&Foo{
+		A: c,
+		B: big.NewInt(1),
+	}, mh.SHA2_256, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCanonicalStructEncoding(t *testing.T) {
 	type Foo struct {
 		Zebra string
@@ -512,7 +537,6 @@ func TestCanonicalStructEncoding(t *testing.T) {
 		Whale string
 		Cat   bool
 	}
-	RegisterCborType(BigIntAtlasEntry)
 	RegisterCborType(Foo{})
 
 	s := Foo{
