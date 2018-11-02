@@ -525,6 +525,27 @@ func TestCidAndBigInt(t *testing.T) {
 	}
 }
 
+func TestEmptyCid(t *testing.T) {
+	type Foo struct {
+		A cid.Cid
+	}
+	type Bar struct {
+		A cid.Cid `refmt:",omitempty"`
+	}
+	RegisterCborType(Foo{})
+	RegisterCborType(Bar{})
+
+	_, err := WrapObject(&Foo{}, mh.SHA2_256, -1)
+	if err == nil {
+		t.Fatal("should have failed to encode an object with an empty but non-omitted CID")
+	}
+
+	_, err = WrapObject(&Bar{}, mh.SHA2_256, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCanonicalStructEncoding(t *testing.T) {
 	type Foo struct {
 		Zebra string
