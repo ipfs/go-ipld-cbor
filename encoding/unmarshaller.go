@@ -26,7 +26,7 @@ type Unmarshaller struct {
 // NewUnmarshallerAtlased creates a new reusable unmarshaller.
 func NewUnmarshallerAtlased(atl atlas.Atlas) *Unmarshaller {
 	m := new(Unmarshaller)
-	m.unmarshal = cbor.NewUnmarshallerAtlased(&m.reader, atl)
+	m.unmarshal = cbor.NewUnmarshallerAtlased(cbor.DecodeOptions{CoerceUndefToNull: true}, &m.reader, atl)
 	return m
 }
 
