@@ -9,8 +9,8 @@ import (
 	"github.com/polydawn/refmt/shared"
 )
 
-//DecodeCBOR returns a string representation of a CBOR blob
-func DecodeCBOR(blob []byte) (string, error) {
+//HumanReadable returns a string representation of a CBOR blob
+func HumanReadable(blob []byte) (string, error) {
 	reader := bytes.NewReader(blob)
 
 	var buf bytes.Buffer
