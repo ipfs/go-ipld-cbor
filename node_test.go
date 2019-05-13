@@ -34,7 +34,7 @@ func TestNonObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := assertCid(nd.Cid(), "zdpuAuvdvGBYa3apsrf63GU9RZcrf5EBwvb82pHjUTyecbvD8"); err != nil {
+	if err := assertCid(nd.Cid(), "bafyreiengp2sbi6ez34a2jctv34bwyjl7yoliteleaswgcwtqzrhmpyt2m"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -43,7 +43,7 @@ func TestNonObject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(back.Cid(), "zdpuAuvdvGBYa3apsrf63GU9RZcrf5EBwvb82pHjUTyecbvD8"); err != nil {
+	if err := assertCid(back.Cid(), "bafyreiengp2sbi6ez34a2jctv34bwyjl7yoliteleaswgcwtqzrhmpyt2m"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -93,7 +93,7 @@ func TestBasicMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(nd.Cid(), "zdpuApUZEHofKXuTs2Yv2CLBeiASQrc9FojFLSZWcyZq6dZhb"); err != nil {
+	if err := assertCid(nd.Cid(), "bafyreib4hmpkwa7zyzoxmpwykof6k7akxnvmsn23oiubsey4e2tf6gqlui"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,7 +102,7 @@ func TestBasicMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(back.Cid(), "zdpuApUZEHofKXuTs2Yv2CLBeiASQrc9FojFLSZWcyZq6dZhb"); err != nil {
+	if err := assertCid(back.Cid(), "bafyreib4hmpkwa7zyzoxmpwykof6k7akxnvmsn23oiubsey4e2tf6gqlui"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,7 +142,7 @@ func TestMarshalRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(nd1.Cid(), "zdpuAo2h1rUzWW3EPm1WBaLhTcq7G3RoXk2o7rqD1qm4jdzrE"); err != nil {
+	if err := assertCid(nd1.Cid(), "bafyreibgx4rjaqolj7c32c7ibxc5tedhisc4d23ihx5t4tgamuvy2hvwjm"); err != nil {
 		orig, err1 := json.Marshal(obj)
 		if err1 != nil {
 			t.Fatal(err1)
@@ -229,7 +229,7 @@ func TestTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := assertCid(nd.Cid(), "zdpuAqobkonFx9i79VEDiz2WcU2dC1YU8ApEVRwSC8sx5cjUP"); err != nil {
+	if err := assertCid(nd.Cid(), "bafyreicp66zmx7grdrnweetu23anx3e5zguda7646iwyothju6nhgqykgq"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -290,7 +290,7 @@ func TestParsing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(n.Cid(), "zdpuApUpLTkn3YYUeuMjWToYn8nt4KQY9kQqd9uL6vwHxXnQN"); err != nil {
+	if err := assertCid(n.Cid(), "bafyreib4jqzv5rpohiu2vi56uggpnshhhnqrsclx2mji67wnihkrfboox4"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -299,27 +299,27 @@ func TestParsing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := assertCid(n.Cid(), "zBwW8WMJocqnuegmghC9MyTw26Ywsdp8KTPUKkhNrnefa1X3RoNtvCCJ6kLbur2bS6TNriRb5SyFKLq9jpwtra9Fsxdd9"); err != nil {
+	if err := assertCid(n.Cid(), "bafyrgqcomxa52fzyrx6d46sgposgxrzdyqpbtu5adh7fpjjhqo7mwftoexd26ghhhxcq53hczq3dobudmvyegjhamahzdu2k66jklr5uys3tq"); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestFromJson(t *testing.T) {
 	data := `{
-        "something": {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
+        "something": {"/":"bafkreifvxooyaffa7gy5mhrb46lnpdom34jvf4r42mubf5efbodyvzeujq"},
         "cats": "not cats",
         "cheese": [
-                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
-                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
-                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"},
-                {"/":"zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw"}
+                {"/":"bafkreifvxooyaffa7gy5mhrb46lnpdom34jvf4r42mubf5efbodyvzeujq"},
+                {"/":"bafkreifvxooyaffa7gy5mhrb46lnpdom34jvf4r42mubf5efbodyvzeujq"},
+                {"/":"bafkreifvxooyaffa7gy5mhrb46lnpdom34jvf4r42mubf5efbodyvzeujq"},
+                {"/":"bafkreifvxooyaffa7gy5mhrb46lnpdom34jvf4r42mubf5efbodyvzeujq"}
         ]
 }`
 	n, err := FromJSON(bytes.NewReader([]byte(data)), mh.SHA2_256, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := assertCid(n.Cid(), "zdpuAqdmDwJ7oDv9cD4hp3yjXgWe9yhZDzRaFbRPin1c4Dz1y"); err != nil {
+	if err := assertCid(n.Cid(), "bafyreicnokmhmrnlp2wjhyk2haep4tqxiptwfrp2rrs7rzq7uk766chqvq"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -329,7 +329,7 @@ func TestFromJson(t *testing.T) {
 		t.Fatal("expected a cid")
 	}
 
-	if c.String() != "zb2rhisguzLFRJaxg6W3SiToBYgESFRGk1wiCRGJYF9jqk1Uw" {
+	if c.String() != "bafkreifvxooyaffa7gy5mhrb46lnpdom34jvf4r42mubf5efbodyvzeujq" {
 		t.Fatal("cid unmarshaled wrong")
 	}
 }
@@ -345,7 +345,7 @@ func TestResolvedValIsJsonable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := assertCid(n.Cid(), "zdpuAku712jAPTQBrP58frxKxeAcVZZczXNCMwBPcKJJDZWdn"); err != nil {
+	if err := assertCid(n.Cid(), "bafyreiahcy6ewqmabbh7lcjhxrillpf72zlu3vqcovckanvj2fwdtenvbe"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -366,16 +366,16 @@ func TestResolvedValIsJsonable(t *testing.T) {
 
 func TestExamples(t *testing.T) {
 	examples := map[string]string{
-		"[null]":                        "zdpuAzexuLRNr1owELqyN3ofh6yWVVKDq5wjFfmVDFbeXBHdj",
-		"[]":                            "zdpuAtQy7GSHNcZxdBfmtowdL1d2WAFjJBwb6WAEfFJ6T4Gbi",
-		"{}":                            "zdpuAyTBnYSugBZhqJuLsNpzjmAjSmxDqBbtAqXMtsvxiN2v3",
-		"null":                          "zdpuAxKCBsAKQpEw456S49oVDkWJ9PZa44KGRfVBWHiXN3UH8",
-		"1":                             "zdpuB2pwLskBDu5PZE2sepLyc3SRFPFgVXmnpzXVtWgam25kY",
-		"[1]":                           "zdpuB31oq9uvbqcSTySbWhD9NMBJDjsUXKtyQNhFAsYNbYH95",
-		"true":                          "zdpuAo6JPKbsmgmtujhh7mGywsAwPRmtyAYZBPKYYRjyLujD1",
-		`{"a":"IPFS"}`:                  "zdpuB3AZ71ccMjBB9atM97R4wSaCYjGyztnHnjUu93t4B2XqY",
-		`{"a":"IPFS","b":null,"c":[1]}`: "zdpuAyoYWNEe6xcGhkYk2SUfc7Rtbk4GkmZCrNAAnpft4Mmj5",
-		`{"a":[]}`:                      "zdpuAmMgJUCDGT4WhHAych8XpSVKQXEwsWhzQhhssr8542KXw",
+		"[null]":                        "bafyreigtpkiih7wr7wb7ts6j5aunnotxiff3yqkx33rs4k4xhskprx5tui",
+		"[]":                            "bafyreidwx2fvfdiaox32v2mnn6sxu3j4qoxeqcuenhtgrv5qv6litfnmoe",
+		"{}":                            "bafyreigbtj4x7ip5legnfznufuopl4sg4knzc2cof6duas4b3q2fy6swua",
+		"null":                          "bafyreifqwkmiw256ojf2zws6tzjeonw6bpd5vza4i22ccpcq4hjv2ts7cm",
+		"1":                             "bafyreihtx752fmf3zafbys5dtr4jxohb53yi3qtzfzf6wd5274jwtn5agu",
+		"[1]":                           "bafyreihwrdqkjomfjaoqe5hbpfjzqoxkhptohvoa5u362s6obgpvxcw45q",
+		"true":                          "bafyreibhvppn37ufanewvxvwendgzksh3jpwhk6sxrx2dh3m7s3t5t7noa",
+		`{"a":"IPFS"}`:                  "bafyreihyyz2badz34h5pvcgof4fj3qwwr7mopoucejwbnpzs7soorkrct4",
+		`{"a":"IPFS","b":null,"c":[1]}`: "bafyreigg2gcszayx2lywb3edqfoftyvus7gxeanmudqla3e6eh2okei25a",
+		`{"a":[]}`:                      "bafyreian4t6wau4jdqt6nys76dfvsn6g7an4ulbv326yzutdgnrr5cjpui",
 	}
 	for originalJSON, expcid := range examples {
 		t.Run(originalJSON, func(t *testing.T) {
@@ -464,7 +464,7 @@ func TestCanonicalize(t *testing.T) {
 		t.Fatal("failed to canonicalize node")
 	}
 
-	if err := assertCid(nd1.Cid(), "zdpuAmxF8q6iTUtkB3xtEYzmc5Sw762qwQJftt5iW8NTWLtjC"); err != nil {
+	if err := assertCid(nd1.Cid(), "bafyreiawx7ona7oa2ptcoh6vwq4q6bmd7x2ibtkykld327bgb7t73ayrqm"); err != nil {
 		t.Fatal(err)
 	}
 
