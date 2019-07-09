@@ -108,6 +108,10 @@ func DecodeInto(b []byte, v interface{}) error {
 	return unmarshaller.Unmarshal(b, v)
 }
 
+func DecodeReader(r io.Reader, v interface{}) error {
+	return unmarshaller.Decode(r, v)
+}
+
 // WrapObject converts an arbitrary object into a Node.
 func WrapObject(m interface{}, mhType uint64, mhLen int) (*Node, error) {
 	data, err := marshaller.Marshal(m)
