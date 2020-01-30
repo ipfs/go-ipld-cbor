@@ -13,28 +13,28 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-type CborIpldStore interface {
+type IpldStore interface {
 	Get(ctx context.Context, c cid.Cid, out interface{}) error
 	Put(ctx context.Context, v interface{}) (cid.Cid, error)
 }
 
-type CborIpldBlockstore interface {
+type IpldBlockstore interface {
 	Get(cid.Cid) (block.Block, error)
 	Put(block.Block) error
 }
 
-type BasicCborIpldStore struct {
-	Blocks CborIpldBlockstore
+type BasicIpldStore struct {
+	Blocks IpldBlockstore
 	Atlas  *atlas.Atlas
 }
 
-var _ CborIpldStore = &BasicCborIpldStore{}
+var _ IpldStore = &BasicIpldStore{}
 
-func NewCborStore(bs CborIpldBlockstore) *BasicCborIpldStore {
-	return &BasicCborIpldStore{Blocks: bs}
+func NewCborStore(bs IpldBlockstore) *BasicIpldStore {
+	return &BasicIpldStore{Blocks: bs}
 }
 
-func (s *BasicCborIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) error {
+func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) error {
 	blk, err := s.Blocks.Get(c)
 	if err != nil {
 		return err
@@ -59,18 +59,18 @@ type cidProvider interface {
 	Cid() cid.Cid
 }
 
-func (s *BasicCborIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error) {
+func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error) {
 	mhType := uint64(mh.BLAKE2B_MIN + 31)
 	mhLen := -1
 	codec := uint64(cid.DagCBOR)
 
 	var expCid cid.Cid
 	if c, ok := v.(cidProvider); ok {
-		pref := c.Cid().Prefix()
+		expCid := c.Cid()
+		pref := expCid.Prefix()
 		mhType = pref.MhType
 		mhLen = pref.MhLength
 		codec = pref.Codec
-		expCid = c.Cid()
 	}
 
 	cm, ok := v.(cbg.CBORMarshaler)
@@ -100,7 +100,12 @@ func (s *BasicCborIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, e
 			return cid.Undef, err
 		}
 
-		return blk.Cid(), nil
+		blkCid := blk.Cid()
+		if expCid != cid.Undef && blkCid != expCid {
+			return cid.Undef, fmt.Errorf("your object is not being serialized the way it expects to")
+		}
+
+		return blkCid, nil
 	}
 
 	nd, err := WrapObject(v, mhType, mhLen)
@@ -112,11 +117,12 @@ func (s *BasicCborIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, e
 		return cid.Undef, err
 	}
 
-	if expCid != cid.Undef && nd.Cid() != expCid {
+	ndCid := nd.Cid()
+	if expCid != cid.Undef && ndCid != expCid {
 		return cid.Undef, fmt.Errorf("your object is not being serialized the way it expects to")
 	}
 
-	return nd.Cid(), nil
+	return ndCid, nil
 }
 
 func NewSerializationError(err error) error {
@@ -135,7 +141,7 @@ func (se SerializationError) Unwrap() error {
 	return se.err
 }
 
-func IsSerializationError(o error) bool {
+func (se SerializationError) Is(o error) bool {
 	_, ok := o.(*SerializationError)
 	return ok
 }
