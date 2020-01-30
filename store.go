@@ -6,11 +6,10 @@ import (
 	"fmt"
 
 	block "github.com/ipfs/go-block-format"
-	recbor "github.com/polydawn/refmt/cbor"
-	atlas "github.com/polydawn/refmt/obj/atlas"
-
 	cid "github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
+	recbor "github.com/polydawn/refmt/cbor"
+	atlas "github.com/polydawn/refmt/obj/atlas"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
