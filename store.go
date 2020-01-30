@@ -136,7 +136,7 @@ func (se SerializationError) Unwrap() error {
 	return se.err
 }
 
-func (se SerializationError) Is(o error) bool {
+func IsSerializationError(o error) bool {
 	_, ok := o.(*SerializationError)
 	return ok
 }
