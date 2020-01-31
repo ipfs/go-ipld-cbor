@@ -13,16 +13,20 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
+// IpldStore wraps a Blockstore and provides an interface for storing and retrieving CBOR encoded data.
 type IpldStore interface {
 	Get(ctx context.Context, c cid.Cid, out interface{}) error
 	Put(ctx context.Context, v interface{}) (cid.Cid, error)
 }
 
+// IpldBlockstore defines a subset of the go-ipfs-blockstore Blockstore interface providing methods
+// for storing and retrieving block-centered data.
 type IpldBlockstore interface {
 	Get(cid.Cid) (block.Block, error)
 	Put(block.Block) error
 }
 
+// BasicIpldStore wraps and IpldBlockstore and implements the IpldStore interface.
 type BasicIpldStore struct {
 	Blocks IpldBlockstore
 	Atlas  *atlas.Atlas
@@ -30,10 +34,12 @@ type BasicIpldStore struct {
 
 var _ IpldStore = &BasicIpldStore{}
 
+// NewCborStore returns an IpldStore implementation backed by the provided IpldBlockstore.
 func NewCborStore(bs IpldBlockstore) *BasicIpldStore {
 	return &BasicIpldStore{Blocks: bs}
 }
 
+// Get reads and unmarshals the content at `c` into `out`.
 func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) error {
 	blk, err := s.Blocks.Get(c)
 	if err != nil {
@@ -59,6 +65,7 @@ type cidProvider interface {
 	Cid() cid.Cid
 }
 
+// Put marshals and writes content `v` to the backing blockstore returning its CID.
 func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error) {
 	mhType := uint64(mh.BLAKE2B_MIN + 31)
 	mhLen := -1
