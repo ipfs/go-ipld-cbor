@@ -15,8 +15,8 @@ import (
 
 // IpldStore wraps a Blockstore and provides an interface for storing and retrieving CBOR encoded data.
 type IpldStore interface {
-	Get(ctx context.Context, c cid.Cid, out interface{}) error
-	Put(ctx context.Context, v interface{}) (cid.Cid, error)
+	Get(ctx context.Context, c cid.Cid, out interface{}) (int, error)
+	Put(ctx context.Context, v interface{}) (cid.Cid, int, error)
 }
 
 // IpldBlockstore defines a subset of the go-ipfs-blockstore Blockstore interface providing methods
@@ -40,24 +40,24 @@ func NewCborStore(bs IpldBlockstore) *BasicIpldStore {
 }
 
 // Get reads and unmarshals the content at `c` into `out`.
-func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) error {
+func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) (int, error) {
 	blk, err := s.Blocks.Get(c)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	cu, ok := out.(cbg.CBORUnmarshaler)
 	if ok {
 		if err := cu.UnmarshalCBOR(bytes.NewReader(blk.RawData())); err != nil {
-			return NewSerializationError(err)
+			return 0, NewSerializationError(err)
 		}
-		return nil
+		return 0, nil
 	}
 
 	if s.Atlas == nil {
-		return DecodeInto(blk.RawData(), out)
+		return len(blk.RawData()), DecodeInto(blk.RawData(), out)
 	} else {
-		return recbor.UnmarshalAtlased(recbor.DecodeOptions{}, blk.RawData(), out, *s.Atlas)
+		return len(blk.RawData()), recbor.UnmarshalAtlased(recbor.DecodeOptions{}, blk.RawData(), out, *s.Atlas)
 	}
 }
 
@@ -66,7 +66,7 @@ type cidProvider interface {
 }
 
 // Put marshals and writes content `v` to the backing blockstore returning its CID.
-func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error) {
+func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, int, error) {
 	mhType := uint64(mh.BLAKE2B_MIN + 31)
 	mhLen := -1
 	codec := uint64(cid.DagCBOR)
@@ -84,7 +84,7 @@ func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error
 	if ok {
 		buf := new(bytes.Buffer)
 		if err := cm.MarshalCBOR(buf); err != nil {
-			return cid.Undef, err
+			return cid.Undef, 0, err
 		}
 
 		pref := cid.Prefix{
@@ -95,41 +95,41 @@ func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error
 		}
 		c, err := pref.Sum(buf.Bytes())
 		if err != nil {
-			return cid.Undef, err
+			return cid.Undef, 0, err
 		}
 
 		blk, err := block.NewBlockWithCid(buf.Bytes(), c)
 		if err != nil {
-			return cid.Undef, err
+			return cid.Undef, 0, err
 		}
 
 		if err := s.Blocks.Put(blk); err != nil {
-			return cid.Undef, err
+			return cid.Undef, 0, err
 		}
 
 		blkCid := blk.Cid()
 		if expCid != cid.Undef && blkCid != expCid {
-			return cid.Undef, fmt.Errorf("your object is not being serialized the way it expects to")
+			return cid.Undef, 0, fmt.Errorf("your object is not being serialized the way it expects to")
 		}
 
-		return blkCid, nil
+		return blkCid, len(blk.RawData()), nil
 	}
 
 	nd, err := WrapObject(v, mhType, mhLen)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, 0, err
 	}
 
 	if err := s.Blocks.Put(nd); err != nil {
-		return cid.Undef, err
+		return cid.Undef, 0, err
 	}
 
 	ndCid := nd.Cid()
 	if expCid != cid.Undef && ndCid != expCid {
-		return cid.Undef, fmt.Errorf("your object is not being serialized the way it expects to")
+		return cid.Undef, 0, fmt.Errorf("your object is not being serialized the way it expects to")
 	}
 
-	return ndCid, nil
+	return ndCid, len(nd.RawData()), nil
 }
 
 func NewSerializationError(err error) error {
