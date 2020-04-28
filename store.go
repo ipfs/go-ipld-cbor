@@ -84,7 +84,7 @@ func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error
 	if ok {
 		buf := new(bytes.Buffer)
 		if err := cm.MarshalCBOR(buf); err != nil {
-			return cid.Undef, err
+			return cid.Undef, NewSerializationError(err)
 		}
 
 		pref := cid.Prefix{
