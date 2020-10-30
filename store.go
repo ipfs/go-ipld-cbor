@@ -53,32 +53,34 @@ func NewCborStore(bs IpldBlockstore) *BasicIpldStore {
 
 // Get reads and unmarshals the content at `c` into `out`.
 func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) error {
-	f := func(b []byte) error {
-		cu, ok := out.(cbg.CBORUnmarshaler)
-		if ok {
-			if err := cu.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
-				return NewSerializationError(err)
-			}
-			return nil
-		}
-
-		if s.Atlas == nil {
-			return DecodeInto(b, out)
-		} else {
-			return recbor.UnmarshalAtlased(recbor.DecodeOptions{}, b, out, *s.Atlas)
-		}
-	}
-
 	if s.Viewer != nil {
 		// zero-copy path.
-		return s.Viewer.View(c, f)
+		return s.Viewer.View(c, func(b []byte) error {
+			return s.decode(b, out)
+		})
 	}
 
 	blk, err := s.Blocks.Get(c)
 	if err != nil {
 		return err
 	}
-	return f(blk.RawData())
+	return s.decode(blk.RawData(), out)
+}
+
+func (s *BasicIpldStore) decode(b []byte, out interface{}) error {
+	cu, ok := out.(cbg.CBORUnmarshaler)
+	if ok {
+		if err := cu.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
+			return NewSerializationError(err)
+		}
+		return nil
+	}
+
+	if s.Atlas == nil {
+		return DecodeInto(b, out)
+	} else {
+		return recbor.UnmarshalAtlased(recbor.DecodeOptions{}, b, out, *s.Atlas)
+	}
 }
 
 type cidProvider interface {
