@@ -26,39 +26,59 @@ type IpldBlockstore interface {
 	Put(block.Block) error
 }
 
+// IpldBlockstoreViewer is a trait that enables zero-copy access to blocks in
+// a blockstore.
+type IpldBlockstoreViewer interface {
+	// View provides zero-copy access to blocks in a blockstore. The callback
+	// function will be invoked with the value for the key. The user MUST not
+	// modify the byte array, as it could be memory-mapped.
+	View(cid.Cid, func([]byte) error) error
+}
+
 // BasicIpldStore wraps and IpldBlockstore and implements the IpldStore interface.
 type BasicIpldStore struct {
 	Blocks IpldBlockstore
-	Atlas  *atlas.Atlas
+	Viewer IpldBlockstoreViewer
+
+	Atlas *atlas.Atlas
 }
 
 var _ IpldStore = &BasicIpldStore{}
 
 // NewCborStore returns an IpldStore implementation backed by the provided IpldBlockstore.
 func NewCborStore(bs IpldBlockstore) *BasicIpldStore {
-	return &BasicIpldStore{Blocks: bs}
+	viewer, _ := bs.(IpldBlockstoreViewer)
+	return &BasicIpldStore{Blocks: bs, Viewer: viewer}
 }
 
 // Get reads and unmarshals the content at `c` into `out`.
 func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) error {
+	f := func(b []byte) error {
+		cu, ok := out.(cbg.CBORUnmarshaler)
+		if ok {
+			if err := cu.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
+				return NewSerializationError(err)
+			}
+			return nil
+		}
+
+		if s.Atlas == nil {
+			return DecodeInto(b, out)
+		} else {
+			return recbor.UnmarshalAtlased(recbor.DecodeOptions{}, b, out, *s.Atlas)
+		}
+	}
+
+	if s.Viewer != nil {
+		// zero-copy path.
+		return s.Viewer.View(c, f)
+	}
+
 	blk, err := s.Blocks.Get(c)
 	if err != nil {
 		return err
 	}
-
-	cu, ok := out.(cbg.CBORUnmarshaler)
-	if ok {
-		if err := cu.UnmarshalCBOR(bytes.NewReader(blk.RawData())); err != nil {
-			return NewSerializationError(err)
-		}
-		return nil
-	}
-
-	if s.Atlas == nil {
-		return DecodeInto(blk.RawData(), out)
-	} else {
-		return recbor.UnmarshalAtlased(recbor.DecodeOptions{}, blk.RawData(), out, *s.Atlas)
-	}
+	return f(blk.RawData())
 }
 
 type cidProvider interface {
