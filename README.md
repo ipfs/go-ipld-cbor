@@ -9,6 +9,10 @@ go-ipld-cbor
 
 > An implementation of a cbor encoded merkledag object.
 
+## Status
+
+For new projects, prefer using the [cbor codec](https://github.com/ipld/go-ipld-prime/tree/master/codec/dagcbor) included with [go-ipld-prime](https://github.com/ipld/go-ipld-prime).
+
 ## Lead Maintainer
 
 [Eric Myhre](https://github.com/warpfork)
@@ -29,7 +33,7 @@ make install
 
 ## Usage
 
-TODO: Right now this package isn't the easiest to use, it will be getting better rapidly, soon.
+Note: This package isn't the easiest to use.
 ```go
 // Make an object
 obj := map[interface{}]interface{}{
