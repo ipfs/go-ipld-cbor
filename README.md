@@ -11,7 +11,9 @@ go-ipld-cbor
 
 ## Status
 
-For new projects, prefer using the [cbor codec](https://github.com/ipld/go-ipld-prime/tree/master/codec/dagcbor) included with [go-ipld-prime](https://github.com/ipld/go-ipld-prime).
+This library **has alternatives available**: For new projects, prefer using the [cbor codec](https://github.com/ipld/go-ipld-prime/tree/master/codec/dagcbor) included with [go-ipld-prime](https://github.com/ipld/go-ipld-prime).
+
+This library is in **standby** mode.  It works, but we recommend migrating to alternatives if possible.  New features are unlikely to be added here.
 
 ## Lead Maintainer
 
