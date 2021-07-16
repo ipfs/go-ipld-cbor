@@ -66,18 +66,22 @@ func BenchmarkWrapObjectParallel(b *testing.B) {
 	b.ResetTimer()
 	var wg sync.WaitGroup
 	wg.Add(100)
+	errors := make(chan error, 100)
 	for j := 0; j < 100; j++ {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < b.N; i++ {
-				nd, err := WrapObject(obj, mh.SHA2_256, -1)
-				if err != nil {
-					b.Fatal(err, nd)
+				if _, err := WrapObject(obj, mh.SHA2_256, -1); err != nil {
+					errors <- err
 				}
 			}
 		}()
 	}
 	wg.Wait()
+	close(errors)
+	for e := range errors {
+		b.Fatal(e)
+	}
 }
 
 func BenchmarkDecodeBlockParallel(b *testing.B) {
@@ -89,18 +93,22 @@ func BenchmarkDecodeBlockParallel(b *testing.B) {
 	b.ResetTimer()
 	var wg sync.WaitGroup
 	wg.Add(100)
+	errs := make(chan error, 100)
 	for j := 0; j < 100; j++ {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < b.N; i++ {
-				nd2, err := DecodeBlock(nd)
-				if err != nil {
-					b.Fatal(err, nd2)
+				if _, err := DecodeBlock(nd); err != nil {
+					errs <- err
 				}
 			}
 		}()
 	}
 	wg.Wait()
+	close(errs)
+	for e := range errs {
+		b.Fatal(e)
+	}
 }
 
 func BenchmarkDumpObject(b *testing.B) {
