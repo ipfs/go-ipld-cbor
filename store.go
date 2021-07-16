@@ -192,7 +192,7 @@ func (mb *mockBlocks) Get(c cid.Cid) (block.Block, error) {
 	if ok {
 		return d, nil
 	}
-	return nil, fmt.Errorf("Not Found")
+	return nil, fmt.Errorf("not found %s", c)
 }
 
 func (mb *mockBlocks) Put(b block.Block) error {
