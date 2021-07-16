@@ -612,8 +612,8 @@ func TestBigIntRoundtrip(t *testing.T) {
 	}
 
 	list := map[string]*TestMe{
-		"hello": &TestMe{Hello: big.NewInt(10), World: *big.NewInt(101), Hi: 1},
-		"world": &TestMe{Hello: big.NewInt(9), World: *big.NewInt(901), Hi: 3},
+		"hello": {Hello: big.NewInt(10), World: *big.NewInt(101), Hi: 1},
+		"world": {Hello: big.NewInt(9), World: *big.NewInt(901), Hi: 3},
 	}
 
 	bytes, err = DumpObject(list)
