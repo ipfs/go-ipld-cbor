@@ -12,4 +12,4 @@ require (
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200123233031-1cdf64d27158
 )
 
-go 1.15
+go 1.16
