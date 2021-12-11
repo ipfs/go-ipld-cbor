@@ -22,8 +22,8 @@ type IpldStore interface {
 // IpldBlockstore defines a subset of the go-ipfs-blockstore Blockstore interface providing methods
 // for storing and retrieving block-centered data.
 type IpldBlockstore interface {
-	Get(cid.Cid) (block.Block, error)
-	Put(block.Block) error
+	Get(context.Context, cid.Cid) (block.Block, error)
+	Put(context.Context, block.Block) error
 }
 
 // IpldBlockstoreViewer is a trait that enables zero-copy access to blocks in
@@ -60,7 +60,7 @@ func (s *BasicIpldStore) Get(ctx context.Context, c cid.Cid, out interface{}) er
 		})
 	}
 
-	blk, err := s.Blocks.Get(c)
+	blk, err := s.Blocks.Get(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error
 			return cid.Undef, err
 		}
 
-		if err := s.Blocks.Put(blk); err != nil {
+		if err := s.Blocks.Put(ctx, blk); err != nil {
 			return cid.Undef, err
 		}
 
@@ -142,7 +142,7 @@ func (s *BasicIpldStore) Put(ctx context.Context, v interface{}) (cid.Cid, error
 		return cid.Undef, err
 	}
 
-	if err := s.Blocks.Put(nd); err != nil {
+	if err := s.Blocks.Put(ctx, nd); err != nil {
 		return cid.Undef, err
 	}
 
@@ -187,7 +187,7 @@ func newMockBlocks() *mockBlocks {
 	return &mockBlocks{make(map[cid.Cid]block.Block)}
 }
 
-func (mb *mockBlocks) Get(c cid.Cid) (block.Block, error) {
+func (mb *mockBlocks) Get(ctx context.Context, c cid.Cid) (block.Block, error) {
 	d, ok := mb.data[c]
 	if ok {
 		return d, nil
@@ -195,7 +195,7 @@ func (mb *mockBlocks) Get(c cid.Cid) (block.Block, error) {
 	return nil, fmt.Errorf("not found %s", c)
 }
 
-func (mb *mockBlocks) Put(b block.Block) error {
+func (mb *mockBlocks) Put(ctx context.Context, b block.Block) error {
 	mb.data[b.Cid()] = b
 	return nil
 }
