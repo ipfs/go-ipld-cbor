@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -408,7 +408,7 @@ func TestExamples(t *testing.T) {
 }
 
 func TestObjects(t *testing.T) {
-	raw, err := ioutil.ReadFile("test_objects/expected.json")
+	raw, err := os.ReadFile("test_objects/expected.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,11 +421,11 @@ func TestObjects(t *testing.T) {
 
 	for k, c := range cases {
 		t.Run(k, func(t *testing.T) {
-			in, err := ioutil.ReadFile(fmt.Sprintf("test_objects/%s.json", k))
+			in, err := os.ReadFile(fmt.Sprintf("test_objects/%s.json", k))
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected, err := ioutil.ReadFile(fmt.Sprintf("test_objects/%s.cbor", k))
+			expected, err := os.ReadFile(fmt.Sprintf("test_objects/%s.cbor", k))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -452,7 +452,7 @@ func TestObjects(t *testing.T) {
 }
 
 func TestCanonicalize(t *testing.T) {
-	b, err := ioutil.ReadFile("test_objects/non-canon.cbor")
+	b, err := os.ReadFile("test_objects/non-canon.cbor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,7 +479,7 @@ func TestCanonicalize(t *testing.T) {
 }
 
 func TestStableCID(t *testing.T) {
-	b, err := ioutil.ReadFile("test_objects/non-canon.cbor")
+	b, err := os.ReadFile("test_objects/non-canon.cbor")
 	if err != nil {
 		t.Fatal(err)
 	}
