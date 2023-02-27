@@ -20,7 +20,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/warpfork/go-wish v0.0.0-20180510122957-5ad1f5abf436 // indirect
 	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8 // indirect
-	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 )
 
