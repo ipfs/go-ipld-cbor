@@ -108,6 +108,7 @@ func DecodeInto(b []byte, v interface{}) error {
 	return unmarshaller.Unmarshal(b, v)
 }
 
+// DecodeReader reads from the given reader and decodes a serialized IPLD cbor object into the given object.
 func DecodeReader(r io.Reader, v interface{}) error {
 	return unmarshaller.Decode(r, v)
 }
@@ -398,6 +399,11 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 // TODO: rename
 func DumpObject(obj interface{}) (out []byte, err error) {
 	return marshaller.Marshal(obj)
+}
+
+// EncodeWriter marshals into the writer any object as its CBOR serialized byte representation.
+func EncodeWriter(obj interface{}, w io.Writer) error {
+	return marshaller.Encode(obj, w)
 }
 
 func toSaneMap(n map[interface{}]interface{}) (interface{}, error) {
