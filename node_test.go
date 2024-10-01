@@ -593,7 +593,7 @@ func TestBigIntRoundtrip(t *testing.T) {
 		World: *big.NewInt(99),
 	}
 
-	bytes, err := DumpObject(&one)
+	bytes, err := Encode(&one)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -616,7 +616,7 @@ func TestBigIntRoundtrip(t *testing.T) {
 		"world": {Hello: big.NewInt(9), World: *big.NewInt(901), Hi: 3},
 	}
 
-	bytes, err = DumpObject(list)
+	bytes, err = Encode(list)
 	if err != nil {
 		t.Fatal(err)
 	}
