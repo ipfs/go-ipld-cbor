@@ -111,10 +111,10 @@ func BenchmarkDecodeBlockParallel(b *testing.B) {
 	}
 }
 
-func BenchmarkDumpObject(b *testing.B) {
+func BenchmarkEncode(b *testing.B) {
 	obj := testStruct()
 	for i := 0; i < b.N; i++ {
-		bytes, err := DumpObject(obj)
+		bytes, err := Encode(obj)
 		if err != nil {
 			b.Fatal(err, bytes)
 		}

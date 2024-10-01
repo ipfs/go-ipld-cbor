@@ -396,8 +396,13 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 }
 
 // DumpObject marshals any object into its CBOR serialized byte representation
-// TODO: rename
+// Deprecated: use Encode instead.
 func DumpObject(obj interface{}) (out []byte, err error) {
+	return Encode(obj)
+}
+
+// Encode marshals any object into its CBOR serialized byte representation
+func Encode(obj interface{}) (out []byte, err error) {
 	return marshaller.Marshal(obj)
 }
 
