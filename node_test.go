@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
+	u "github.com/ipfs/boxo/util"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
 	mh "github.com/multiformats/go-multihash"
 )
 
