@@ -4,9 +4,9 @@ go 1.25
 
 require (
 	github.com/ipfs/boxo v0.34.0
-	github.com/ipfs/go-block-format v0.2.2
+	github.com/ipfs/go-block-format v0.2.3
 	github.com/ipfs/go-cid v0.5.0
-	github.com/ipfs/go-ipld-format v0.6.2
+	github.com/ipfs/go-ipld-format v0.6.3
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/polydawn/refmt v0.89.0
 	github.com/whyrusleeping/cbor-gen v0.3.1
