@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
+	recbor "github.com/polydawn/refmt/cbor"
 )
 
 func init() {
@@ -87,6 +89,73 @@ func TestDecodeIntoNonObject(t *testing.T) {
 	}
 	if s != "foobar" {
 		t.Fatal("strings don't match")
+	}
+}
+
+func TestDecodeIntoRejectsInvalidDAGCBOR(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		wantErr error
+	}{
+		{
+			name:    "indefinite list",
+			data:    []byte{0x9f, 0xff},
+			wantErr: recbor.ErrIndefiniteLength,
+		},
+		{
+			name:    "nan",
+			data:    []byte{0xfb, 0x7f, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+			wantErr: recbor.ErrFloatNaN,
+		},
+		{
+			name:    "positive infinity",
+			data:    []byte{0xfb, 0x7f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+			wantErr: recbor.ErrFloatInfinity,
+		},
+		{
+			name:    "negative infinity",
+			data:    []byte{0xfb, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+			wantErr: recbor.ErrFloatInfinity,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var v interface{}
+			if err := DecodeInto(tc.data, &v); !errors.Is(err, tc.wantErr) {
+				t.Fatalf("expected %v, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestDecodeIntoAllowsRelaxedCanonicalForms(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{
+			name: "non-minimal unsigned integer",
+			data: []byte{0x18, 0x17},
+		},
+		{
+			name: "non-minimal string length",
+			data: []byte{0x78, 0x01, 'a'},
+		},
+		{
+			name: "single precision float",
+			data: []byte{0xfa, 0x3f, 0x80, 0x00, 0x00},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var v interface{}
+			if err := DecodeInto(tc.data, &v); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
